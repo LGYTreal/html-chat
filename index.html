@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        #chat-messages { height: 450px; overflow-y: auto; scroll-behavior: smooth; }
+        .owner-tag { color: #ff4d4d; font-weight: 900; border: 1px solid #ff4d4d; padding: 0 5px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; background: rgba(255, 77, 77, 0.1); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
+        .gh-btn { transition: all 0.2s ease; background: #1e293b; border: 1px solid #334155; }
+        .gh-btn:hover { background: #334155; border-color: #6366f1; transform: translateY(-1px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans">
+
+<div id="app" class="max-w-6xl mx-auto p-4">
+    <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[100]">
+        <div class="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-800 text-center">
+            <h2 class="text-3xl font-black mb-6 text-indigo-500 uppercase tracking-tighter">HTML CHAT</h2>
+            <input id="username-input" type="text" placeholder="Enter Nickname" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-center">
+            <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect</button>
+        </div>
+    </div>
+
+    <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-800 pb-4 gap-4">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-black tracking-tighter text-indigo-500 underline decoration-indigo-800">HTML CHAT</h1>
+            <div class="flex gap-2">
+                <a href="https://github.com/LGYTreal/html-chat" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.412-4.041-1.412-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub Repo
+                </a>
+                <a href="https://github.com/LGYTreal/" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold text-indigo-400">
+                    Created by LifeguardYT
+                </a>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-end">
+            <div id="user-info" class="font-bold text-slate-300 bg-slate-900 px-4 py-1 rounded-full border border-slate-800 flex items-center"></div>
+            <div id="debug-uid" class="text-[10px] text-slate-600 mt-1 uppercase tracking-widest"></div>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 h-fit">
+            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-2 rounded-lg mb-6 font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-900/20">New Room</button>
+            <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 px-2">Rooms</h3>
+            <ul id="room-list" class="space-y-2"></ul>
+        </div>
+
+        <div class="md:col-span-3 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col overflow-hidden shadow-2xl">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
+                <h2 id="current-room-name" class="font-bold text-xl text-white"># global</h2>
+                <button id="btn-delete-room" class="hidden text-red-500 text-xs font-black hover:bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20 transition">DELETE ROOM</button>
+            </div>
+            
+            <div id="chat-messages" class="p-6 space-y-6 flex-1 bg-slate-950/30"></div>
+
+            <form id="chat-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
+                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-white">
+                <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700">Send</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyAfuvvQFw5lpk_UxjoquPAgRPM-6aRbWlQ",
+        authDomain: "htmlchat-html.firebaseapp.com",
+        projectId: "htmlchat-html",
+        storageBucket: "htmlchat-html.firebasestorage.app",
+        messagingSenderId: "836911909276",
+        appId: "1:836911909276:web:da4dcf0be833cd1ed1e059",
+        databaseURL: "https://htmlchat-html-default-rtdb.firebaseio.com"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    let currentUser = null;
+    let currentRoomId = 'global';
+    let isGlobalAdmin = false;
+    const ADMIN_NAME = "LifeguardYT";
+
+    document.getElementById('btn-login').onclick = async () => {
+        const name = document.getElementById('username-input').value.trim();
+        if(!name) return alert("Nickname required");
+
+        try {
+            const cred = await signInAnonymously(auth);
+            
+            if(name === ADMIN_NAME) {
+                const snap = await get(ref(db, 'admin_config/pass'));
+                const p = prompt("Admin Security Challenge:");
+                if(!snap.exists() || p !== snap.val()) {
+                    await signOut(auth);
+                    return alert("Unauthorized Access");
+                }
+            }
+
+            await updateProfile(cred.user, { displayName: name });
+            window.location.reload(); 
+        } catch (e) { alert(e.message); }
+    };
+
+    window.handleLogout = async () => {
+        await signOut(auth);
+        window.location.reload();
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user && user.displayName) {
+            currentUser = user;
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('debug-uid').innerText = "UID: " + user.uid;
+
+            const adminSnap = await get(ref(db, `admins/${user.uid}`));
+            isGlobalAdmin = adminSnap.exists();
+
+            renderUserUI();
+            initApp();
+        } else {
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+    });
+
+    function renderUserUI() {
+        document.getElementById('user-info').innerHTML = `
+            ${isGlobalAdmin ? '<span class="owner-tag">OWNER</span>' : ''}
+            <span>${currentUser.displayName}</span>
+            <button onclick="handleLogout()" class="ml-4 text-xs text-slate-500 hover:text-white uppercase font-bold transition">Logout</button>
+        `;
+    }
+
+    function initApp() {
+        onValue(ref(db, 'rooms'), (snapshot) => {
+            const list = document.getElementById('room-list');
+            list.innerHTML = `<li onclick="switchRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-bold transition"># global</li>`;
+            snapshot.forEach((child) => {
+                const room = child.val();
+                list.innerHTML += `<li onclick="switchRoom('${child.key}', '${room.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-300 font-semibold border border-transparent hover:border-slate-700 transition flex justify-between items-center">
+                    <span># ${room.name}</span>
+                    ${room.password ? '🔒' : ''}
+                </li>`;
+            });
+        });
+        switchRoom('global', 'global');
+    }
+
+    window.switchRoom = async (roomId, roomName) => {
+        currentRoomId = roomId;
+        document.getElementById('current-room-name').innerText = `# ${roomName}`;
+        
+        if(roomId !== 'global') {
+            const snap = await get(ref(db, `rooms/${roomId}`));
+            const data = snap.val();
+            if(!data) return;
+
+            if(data.password) {
+                let msg = "Enter Room Password:";
+                if(isGlobalAdmin) msg = `ADMIN VIEW: Password is [ ${data.password} ]\nEnter it to join:`;
+                
+                const attempt = prompt(msg);
+                if(attempt !== data.password) {
+                    alert("Wrong Password");
+                    return switchRoom('global', 'global');
+                }
+            }
+            
+            const canDeleteRoom = (data.owner === currentUser.uid || isGlobalAdmin);
+            document.getElementById('btn-delete-room').classList.toggle('hidden', !canDeleteRoom);
+        } else {
+            document.getElementById('btn-delete-room').classList.add('hidden');
+        }
+        loadMessages(roomId);
+    };
+
+    function loadMessages(roomId) {
+        onValue(ref(db, `messages/${roomId}`), (snapshot) => {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = '';
+            snapshot.forEach((child) => {
+                const msg = child.val();
+                const mid = child.key;
+                const isAdminMsg = msg.userName === ADMIN_NAME;
+                
+                const div = document.createElement('div');
+                div.className = "group flex flex-col";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 mb-1 px-1">
+                        <span class="text-[10px] font-black uppercase ${isAdminMsg ? 'text-red-500' : 'text-indigo-400'}">
+                            ${isAdminMsg ? '[OWNER] ' : ''}${msg.userName}
+                        </span>
+                        ${(msg.userId === currentUser.uid || isGlobalAdmin) ? `<button onclick="deleteMsg('${mid}')" class="hidden group-hover:block text-[9px] text-slate-500 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}
+                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl rounded-tl-none border border-slate-800 text-sm max-w-[85%] text-slate-200">
+                        ${msg.text}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        });
+    }
+
+    window.deleteMsg = (mid) => { 
+        if(confirm("Delete this message?")) remove(ref(db, `messages/${currentRoomId}/${mid}`)); 
+    };
+
+    document.getElementById('chat-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const input = document.getElementById('msg-input');
+        if(!input.value.trim()) return;
+        await push(ref(db, `messages/${currentRoomId}`), {
+            text: input.value,
+            userId: currentUser.uid,
+            userName: currentUser.displayName,
+            timestamp: Date.now()
+        });
+        input.value = '';
+    };
+
+    document.getElementById('btn-create-room').onclick = async () => {
+        const name = prompt("Room Name:");
+        if(!name) return;
+        const pass = prompt("Room Password (optional):");
+        await set(push(ref(db, 'rooms')), {
+            name,
+            owner: currentUser.uid,
+            password: pass || null,
+            createdAt: Date.now()
+        });
+    };
+
+    document.getElementById('btn-delete-room').onclick = async () => {
+        if(confirm("Permanently delete this room?")) {
+            await remove(ref(db, `rooms/${currentRoomId}`));
+            await remove(ref(db, `messages/${currentRoomId}`));
+            switchRoom('global', 'global');
+        }
+    };
+</script>
+</body>
+</html>
