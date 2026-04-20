@@ -20,8 +20,12 @@
     <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[100]">
         <div class="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-800 text-center">
             <h2 class="text-3xl font-black mb-6 text-indigo-500 uppercase tracking-tighter">HTML CHAT</h2>
-            <input id="username-input" type="text" placeholder="Enter Nickname" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 mb-4 text-center">
-            <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect</button>
+            <div class="space-y-4">
+                <input id="username-input" type="text" placeholder="Username" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
+                <input id="password-input" type="password" placeholder="Account Password" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
+                <p class="text-[10px] text-slate-500">First time? This will create your account.</p>
+                <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect / Register</button>
+            </div>
         </div>
     </div>
 
@@ -47,7 +51,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 h-fit">
-            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-2 rounded-lg mb-6 font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-900/20">New Room</button>
+            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-2 rounded-lg mb-6 font-bold hover:bg-indigo-700 transition">New Room</button>
             <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 px-2">Rooms</h3>
             <ul id="room-list" class="space-y-2"></ul>
         </div>
@@ -57,9 +61,7 @@
                 <h2 id="current-room-name" class="font-bold text-xl text-white"># global</h2>
                 <button id="btn-delete-room" class="hidden text-red-500 text-xs font-black hover:bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20 transition">DELETE ROOM</button>
             </div>
-            
             <div id="chat-messages" class="p-6 space-y-6 flex-1 bg-slate-950/30"></div>
-
             <form id="chat-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
                 <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-white">
                 <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700">Send</button>
@@ -71,7 +73,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getDatabase, ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-    import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAfuvvQFw5lpk_UxjoquPAgRPM-6aRbWlQ",
@@ -94,23 +96,35 @@
 
     document.getElementById('btn-login').onclick = async () => {
         const name = document.getElementById('username-input').value.trim();
-        if(!name) return alert("Nickname required");
+        const pass = document.getElementById('password-input').value;
+        if(!name || pass.length < 6) return alert("Username required and password min 6 chars.");
+
+        const email = `${name.toLowerCase()}@chat.com`;
 
         try {
-            const cred = await signInAnonymously(auth);
+            // Try to sign in first
+            let userCredential;
+            try {
+                userCredential = await signInWithEmailAndPassword(auth, email, pass);
+            } catch (err) {
+                // If user doesn't exist, create them
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                    userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                    await updateProfile(userCredential.user, { displayName: name });
+                } else { throw err; }
+            }
             
+            // Extra Admin Security check for LifeguardYT
             if(name === ADMIN_NAME) {
                 const snap = await get(ref(db, 'admin_config/pass'));
-                const p = prompt("Admin Security Challenge:");
+                const p = prompt("Admin Security Challenge (DB Password):");
                 if(!snap.exists() || p !== snap.val()) {
                     await signOut(auth);
-                    return alert("Unauthorized Access");
+                    return alert("Unauthorized Admin Login");
                 }
             }
-
-            await updateProfile(cred.user, { displayName: name });
             window.location.reload(); 
-        } catch (e) { alert(e.message); }
+        } catch (e) { alert("Login Error: " + e.message); }
     };
 
     window.handleLogout = async () => {
@@ -160,23 +174,19 @@
     window.switchRoom = async (roomId, roomName) => {
         currentRoomId = roomId;
         document.getElementById('current-room-name').innerText = `# ${roomName}`;
-        
         if(roomId !== 'global') {
             const snap = await get(ref(db, `rooms/${roomId}`));
             const data = snap.val();
             if(!data) return;
-
             if(data.password) {
                 let msg = "Enter Room Password:";
                 if(isGlobalAdmin) msg = `ADMIN VIEW: Password is [ ${data.password} ]\nEnter it to join:`;
-                
                 const attempt = prompt(msg);
                 if(attempt !== data.password) {
                     alert("Wrong Password");
                     return switchRoom('global', 'global');
                 }
             }
-            
             const canDeleteRoom = (data.owner === currentUser.uid || isGlobalAdmin);
             document.getElementById('btn-delete-room').classList.toggle('hidden', !canDeleteRoom);
         } else {
@@ -193,7 +203,6 @@
                 const msg = child.val();
                 const mid = child.key;
                 const isAdminMsg = msg.userName === ADMIN_NAME;
-                
                 const div = document.createElement('div');
                 div.className = "group flex flex-col";
                 div.innerHTML = `
@@ -203,9 +212,7 @@
                         </span>
                         ${(msg.userId === currentUser.uid || isGlobalAdmin) ? `<button onclick="deleteMsg('${mid}')" class="hidden group-hover:block text-[9px] text-slate-500 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}
                     </div>
-                    <div class="bg-slate-900 p-4 rounded-2xl rounded-tl-none border border-slate-800 text-sm max-w-[85%] text-slate-200">
-                        ${msg.text}
-                    </div>
+                    <div class="bg-slate-900 p-4 rounded-2xl rounded-tl-none border border-slate-800 text-sm max-w-[85%] text-slate-200">${msg.text}</div>
                 `;
                 container.appendChild(div);
             });
@@ -213,19 +220,14 @@
         });
     }
 
-    window.deleteMsg = (mid) => { 
-        if(confirm("Delete this message?")) remove(ref(db, `messages/${currentRoomId}/${mid}`)); 
-    };
+    window.deleteMsg = (mid) => { if(confirm("Delete this message?")) remove(ref(db, `messages/${currentRoomId}/${mid}`)); };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
         const input = document.getElementById('msg-input');
         if(!input.value.trim()) return;
         await push(ref(db, `messages/${currentRoomId}`), {
-            text: input.value,
-            userId: currentUser.uid,
-            userName: currentUser.displayName,
-            timestamp: Date.now()
+            text: input.value, userId: currentUser.uid, userName: currentUser.displayName, timestamp: Date.now()
         });
         input.value = '';
     };
@@ -234,12 +236,7 @@
         const name = prompt("Room Name:");
         if(!name) return;
         const pass = prompt("Room Password (optional):");
-        await set(push(ref(db, 'rooms')), {
-            name,
-            owner: currentUser.uid,
-            password: pass || null,
-            createdAt: Date.now()
-        });
+        await set(push(ref(db, 'rooms')), { name, owner: currentUser.uid, password: pass || null, createdAt: Date.now() });
     };
 
     document.getElementById('btn-delete-room').onclick = async () => {
