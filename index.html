@@ -23,8 +23,8 @@
             <div class="space-y-4">
                 <input id="username-input" type="text" placeholder="Username" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
                 <input id="password-input" type="password" placeholder="Account Password" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
-                <p class="text-[10px] text-slate-500">First time? This will create your account.</p>
-                <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect / Register</button>
+                <p class="text-[10px] text-slate-500">Enter your account details to connect.</p>
+                <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect</button>
             </div>
         </div>
     </div>
@@ -102,26 +102,14 @@
         const email = `${name.toLowerCase()}@chat.com`;
 
         try {
-            // Try to sign in first
             let userCredential;
             try {
                 userCredential = await signInWithEmailAndPassword(auth, email, pass);
             } catch (err) {
-                // If user doesn't exist, create them
-                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
                     userCredential = await createUserWithEmailAndPassword(auth, email, pass);
                     await updateProfile(userCredential.user, { displayName: name });
                 } else { throw err; }
-            }
-            
-            // Extra Admin Security check for LifeguardYT
-            if(name === ADMIN_NAME) {
-                const snap = await get(ref(db, 'admin_config/pass'));
-                const p = prompt("Admin Security Challenge (DB Password):");
-                if(!snap.exists() || p !== snap.val()) {
-                    await signOut(auth);
-                    return alert("Unauthorized Admin Login");
-                }
             }
             window.location.reload(); 
         } catch (e) { alert("Login Error: " + e.message); }
@@ -138,6 +126,7 @@
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('debug-uid').innerText = "UID: " + user.uid;
 
+            // Simple check: Is this UID in the admins folder?
             const adminSnap = await get(ref(db, `admins/${user.uid}`));
             isGlobalAdmin = adminSnap.exists();
 
