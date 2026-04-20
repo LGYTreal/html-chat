@@ -12,9 +12,20 @@
         ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
         .gh-btn { transition: all 0.2s ease; background: #1e293b; border: 1px solid #334155; }
         .gh-btn:hover { background: #334155; border-color: #6366f1; transform: translateY(-1px); }
+        #ban-screen { display: none; }
+        .is-banned #ban-screen { display: flex; z-index: 9999; }
+        .is-banned #app { display: none; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 font-sans">
+
+<div id="ban-screen" class="fixed inset-0 bg-red-700 flex flex-col items-center justify-center text-center p-6">
+    <h1 class="text-9xl font-black text-white mb-4 italic tracking-tighter">BANNED</h1>
+    <div class="bg-black/20 p-6 rounded-2xl border border-white/20 max-w-md">
+        <p class="text-xl font-bold text-red-100 mb-2">Reason:</p>
+        <p id="ban-reason-text" class="text-white text-2xl uppercase font-black italic">No reason provided.</p>
+    </div>
+</div>
 
 <div id="app" class="max-w-6xl mx-auto p-4">
     <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[100]">
@@ -23,7 +34,6 @@
             <div class="space-y-4">
                 <input id="username-input" type="text" placeholder="Username" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
                 <input id="password-input" type="password" placeholder="Account Password" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center">
-                <p class="text-[10px] text-slate-500">Enter your account details to connect.</p>
                 <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all active:scale-95">Connect</button>
             </div>
         </div>
@@ -33,16 +43,10 @@
         <div class="flex items-center gap-4">
             <h1 class="text-2xl font-black tracking-tighter text-indigo-500 underline decoration-indigo-800">HTML CHAT</h1>
             <div class="flex gap-2">
-                <a href="https://github.com/LGYTreal/html-chat" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">
-                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.041-1.412-4.041-1.412-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                    GitHub Repo
-                </a>
-                <a href="https://github.com/LGYTreal/" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold text-indigo-400">
-                    Created by LifeguardYT
-                </a>
+                <a href="https://github.com/LGYTreal/html-chat" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">GitHub Repo</a>
+                <a href="https://github.com/LGYTreal/" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold text-indigo-400">Created by LifeguardYT</a>
             </div>
         </div>
-        
         <div class="flex flex-col items-end">
             <div id="user-info" class="font-bold text-slate-300 bg-slate-900 px-4 py-1 rounded-full border border-slate-800 flex items-center"></div>
             <div id="debug-uid" class="text-[10px] text-slate-600 mt-1 uppercase tracking-widest"></div>
@@ -52,7 +56,6 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 h-fit">
             <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-2 rounded-lg mb-6 font-bold hover:bg-indigo-700 transition">New Room</button>
-            <h3 class="text-xs font-black text-slate-500 uppercase tracking-widest mb-3 px-2">Rooms</h3>
             <ul id="room-list" class="space-y-2"></ul>
         </div>
 
@@ -61,11 +64,22 @@
                 <h2 id="current-room-name" class="font-bold text-xl text-white"># global</h2>
                 <button id="btn-delete-room" class="hidden text-red-500 text-xs font-black hover:bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20 transition">DELETE ROOM</button>
             </div>
+            
             <div id="chat-messages" class="p-6 space-y-6 flex-1 bg-slate-950/30"></div>
-            <form id="chat-form" class="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
-                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-white">
-                <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700">Send</button>
-            </form>
+
+            <div class="p-4 bg-slate-900 border-t border-slate-800">
+                <div id="timeout-bar" class="hidden flex items-center justify-between bg-red-900/30 border border-red-500/30 p-2 rounded-xl mb-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-red-500 font-black italic animate-pulse">TIMED OUT</span>
+                        <span id="timeout-timer" class="font-mono text-white bg-red-600 px-2 rounded">00:00</span>
+                    </div>
+                    <button onclick="showTimeoutReason()" class="text-[10px] bg-red-600/20 hover:bg-red-600 text-white px-2 py-1 rounded font-bold transition">VIEW REASON</button>
+                </div>
+                <form id="chat-form" class="flex gap-3">
+                    <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 text-white disabled:opacity-50">
+                    <button type="submit" id="btn-send" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50">Send</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -92,56 +106,117 @@
     let currentUser = null;
     let currentRoomId = 'global';
     let isGlobalAdmin = false;
+    let timeoutReason = "";
     const ADMIN_NAME = "LifeguardYT";
 
+    // LOGIN LOGIC
     document.getElementById('btn-login').onclick = async () => {
         const name = document.getElementById('username-input').value.trim();
         const pass = document.getElementById('password-input').value;
-        if(!name || pass.length < 6) return alert("Username required and password min 6 chars.");
-
+        if(!name || pass.length < 6) return alert("Nickname and 6-char password required.");
         const email = `${name.toLowerCase()}@chat.com`;
-
         try {
-            let userCredential;
-            try {
-                userCredential = await signInWithEmailAndPassword(auth, email, pass);
-            } catch (err) {
-                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
-                    userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-                    await updateProfile(userCredential.user, { displayName: name });
-                } else { throw err; }
+            try { await signInWithEmailAndPassword(auth, email, pass); }
+            catch (err) {
+                const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                await updateProfile(cred.user, { displayName: name });
             }
             window.location.reload(); 
-        } catch (e) { alert("Login Error: " + e.message); }
+        } catch (e) { alert(e.message); }
     };
 
-    window.handleLogout = async () => {
-        await signOut(auth);
-        window.location.reload();
-    };
+    window.handleLogout = () => signOut(auth).then(() => window.location.reload());
 
+    // PUNISHMENT CHECKERS
     onAuthStateChanged(auth, async (user) => {
-        if (user && user.displayName) {
+        if (user) {
             currentUser = user;
-            document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('debug-uid').innerText = "UID: " + user.uid;
-
-            // Simple check: Is this UID in the admins folder?
+            
+            // 1. Check Admin
             const adminSnap = await get(ref(db, `admins/${user.uid}`));
             isGlobalAdmin = adminSnap.exists();
 
+            // 2. Punishment Listener
+            onValue(ref(db, `punishments/${user.uid}`), (snap) => {
+                const p = snap.val();
+                if(!p) {
+                    document.body.classList.remove('is-banned');
+                    return;
+                }
+                
+                if(p.type === 'ban') {
+                    document.getElementById('ban-reason-text').innerText = p.reason;
+                    document.body.classList.add('is-banned');
+                }
+                
+                if(p.type === 'timeout') {
+                    timeoutReason = p.reason;
+                    startTimeoutCountdown(p.until);
+                }
+            });
+
             renderUserUI();
             initApp();
+            document.getElementById('login-screen').classList.add('hidden');
         } else {
             document.getElementById('login-screen').classList.remove('hidden');
         }
     });
 
+    function startTimeoutCountdown(until) {
+        const bar = document.getElementById('timeout-bar');
+        const timer = document.getElementById('timeout-timer');
+        const input = document.getElementById('msg-input');
+        const btn = document.getElementById('btn-send');
+
+        const update = () => {
+            const now = Date.now();
+            const diff = until - now;
+            if(diff <= 0) {
+                bar.classList.add('hidden');
+                input.disabled = false;
+                btn.disabled = false;
+                return;
+            }
+            bar.classList.remove('hidden');
+            input.disabled = true;
+            btn.disabled = true;
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            timer.innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+            setTimeout(update, 1000);
+        };
+        update();
+    }
+
+    window.showTimeoutReason = () => alert(`Timeout Reason: ${timeoutReason}`);
+
+    // ADMIN PUNISHMENT TOOLS
+    window.punishUser = async (uid, name) => {
+        if(!isGlobalAdmin) return;
+        const action = prompt(`Punishing ${name}:\nType 'ban' or 'timeout' (minutes) or 'unpunish'`);
+        if(!action) return;
+
+        const pRef = ref(db, `punishments/${uid}`);
+        
+        if(action === 'unpunish') return remove(pRef);
+        
+        const reason = prompt("Enter Reason:") || "No reason provided.";
+
+        if(action === 'ban') {
+            await set(pRef, { type: 'ban', reason, by: currentUser.displayName });
+        } else if (!isNaN(action)) {
+            const until = Date.now() + (parseInt(action) * 60000);
+            await set(pRef, { type: 'timeout', until, reason, by: currentUser.displayName });
+        }
+    };
+
     function renderUserUI() {
         document.getElementById('user-info').innerHTML = `
             ${isGlobalAdmin ? '<span class="owner-tag">OWNER</span>' : ''}
             <span>${currentUser.displayName}</span>
-            <button onclick="handleLogout()" class="ml-4 text-xs text-slate-500 hover:text-white uppercase font-bold transition">Logout</button>
+            <button onclick="handleLogout()" class="ml-4 text-xs text-slate-500 hover:text-white uppercase font-bold">Logout</button>
         `;
     }
 
@@ -168,16 +243,11 @@
             const data = snap.val();
             if(!data) return;
             if(data.password) {
-                let msg = "Enter Room Password:";
-                if(isGlobalAdmin) msg = `ADMIN VIEW: Password is [ ${data.password} ]\nEnter it to join:`;
-                const attempt = prompt(msg);
-                if(attempt !== data.password) {
-                    alert("Wrong Password");
-                    return switchRoom('global', 'global');
-                }
+                let msg = "Password:";
+                if(isGlobalAdmin) msg = `ADMIN VIEW: [ ${data.password} ]\nEnter pass:`;
+                if(prompt(msg) !== data.password) return switchRoom('global', 'global');
             }
-            const canDeleteRoom = (data.owner === currentUser.uid || isGlobalAdmin);
-            document.getElementById('btn-delete-room').classList.toggle('hidden', !canDeleteRoom);
+            document.getElementById('btn-delete-room').classList.toggle('hidden', !(data.owner === currentUser.uid || isGlobalAdmin));
         } else {
             document.getElementById('btn-delete-room').classList.add('hidden');
         }
@@ -196,7 +266,7 @@
                 div.className = "group flex flex-col";
                 div.innerHTML = `
                     <div class="flex items-center gap-2 mb-1 px-1">
-                        <span class="text-[10px] font-black uppercase ${isAdminMsg ? 'text-red-500' : 'text-indigo-400'}">
+                        <span onclick="punishUser('${msg.userId}', '${msg.userName}')" class="cursor-pointer text-[10px] font-black uppercase ${isAdminMsg ? 'text-red-500' : 'text-indigo-400'}">
                             ${isAdminMsg ? '[OWNER] ' : ''}${msg.userName}
                         </span>
                         ${(msg.userId === currentUser.uid || isGlobalAdmin) ? `<button onclick="deleteMsg('${mid}')" class="hidden group-hover:block text-[9px] text-slate-500 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}
@@ -209,12 +279,12 @@
         });
     }
 
-    window.deleteMsg = (mid) => { if(confirm("Delete this message?")) remove(ref(db, `messages/${currentRoomId}/${mid}`)); };
+    window.deleteMsg = (mid) => { if(confirm("Delete message?")) remove(ref(db, `messages/${currentRoomId}/${mid}`)); };
 
     document.getElementById('chat-form').onsubmit = async (e) => {
         e.preventDefault();
         const input = document.getElementById('msg-input');
-        if(!input.value.trim()) return;
+        if(!input.value.trim() || input.disabled) return;
         await push(ref(db, `messages/${currentRoomId}`), {
             text: input.value, userId: currentUser.uid, userName: currentUser.displayName, timestamp: Date.now()
         });
@@ -229,7 +299,7 @@
     };
 
     document.getElementById('btn-delete-room').onclick = async () => {
-        if(confirm("Permanently delete this room?")) {
+        if(confirm("Delete room?")) {
             await remove(ref(db, `rooms/${currentRoomId}`));
             await remove(ref(db, `messages/${currentRoomId}`));
             switchRoom('global', 'global');
