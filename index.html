@@ -5,334 +5,269 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
     <style>
-        #chat-messages { height: 450px; overflow-y: auto; scroll-behavior: smooth; }
-        .owner-tag { color: #ff4d4d; font-weight: 900; border: 1px solid #ff4d4d; padding: 0 5px; border-radius: 4px; font-size: 0.7rem; margin-right: 5px; background: rgba(255, 77, 77, 0.1); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; font-size: 14px; }
+        #chat-messages { height: 420px; overflow-y: auto; scroll-behavior: smooth; }
+        .owner-tag { color: #ff4d4d; font-weight: 900; border: 1px solid #ff4d4d; padding: 0 4px; border-radius: 3px; font-size: 0.7rem; margin-right: 4px; background: rgba(255, 77, 77, 0.1); }
+        #emoji-container { display: none; position: absolute; bottom: 80px; right: 10px; width: 280px; height: 320px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; flex-direction: column; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
+        #emoji-container.active { display: flex; }
+        .emoji-list { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 10px; overflow-y: auto; }
+        .emoji-item { cursor: pointer; font-size: 1.4rem; text-align: center; padding: 4px; border-radius: 6px; }
+        .emoji-item:hover { background: #334155; }
+        .chat-img { max-width: 220px; border-radius: 10px; margin-top: 5px; border: 1px solid #334155; cursor: pointer; }
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
-        .gh-btn { transition: all 0.2s ease; background: #1e293b; border: 1px solid #334155; }
-        .gh-btn:hover { background: #334155; border-color: #6366f1; transform: translateY(-1px); }
-        /* Ban Screen Logic */
-        #ban-screen { display: none; }
-        body.is-banned #ban-screen { display: flex !important; z-index: 9999; position: fixed; inset: 0; }
-        body.is-banned #app { display: none; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 font-sans">
+<body class="bg-slate-950 text-slate-200">
 
-<div id="ban-screen" class="bg-red-700 flex flex-col items-center justify-center text-center p-6">
-    <h1 class="text-9xl font-black text-white mb-4 italic tracking-tighter">BANNED</h1>
-    <div class="bg-black/20 p-6 rounded-2xl border border-white/20 max-w-md">
-        <p class="text-xl font-bold text-red-100 mb-2">Reason:</p>
-        <p id="ban-reason-text" class="text-white text-2xl uppercase font-black italic">Violation of Terms</p>
-    </div>
-    <button onclick="location.reload()" class="mt-8 text-white/50 hover:text-white text-xs font-bold underline">RETRY CONNECTION</button>
-</div>
-
-<div id="punish-modal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4">
-    <div class="bg-slate-900 border border-slate-700 w-full max-w-md rounded-3xl p-8 shadow-2xl">
-        <h3 id="punish-target-name" class="text-2xl font-black text-white mb-6 uppercase tracking-tighter italic">Punish User</h3>
-        <div class="space-y-4">
-            <div>
-                <label class="text-[10px] font-bold text-slate-500 uppercase">Reason</label>
-                <input id="punish-reason" type="text" placeholder="Reason for punishment..." class="w-full bg-slate-800 border border-slate-700 p-3 rounded-xl outline-none focus:ring-2 focus:ring-red-500 text-white">
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="execPunish('ban')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition">BAN</button>
-                <button onclick="execPunish('timeout')" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition">TIMEOUT</button>
-            </div>
-            <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-xl">
-                <input id="timeout-mins" type="number" value="5" class="w-20 bg-slate-700 border-none rounded-lg p-2 text-center text-white font-bold">
-                <span class="text-xs text-slate-400 font-bold uppercase">Minutes</span>
-            </div>
-            <button onclick="execPunish('unpunish')" class="w-full border border-slate-700 text-slate-400 hover:bg-slate-800 py-2 rounded-xl text-xs font-bold transition">REVOKE ALL PUNISHMENTS</button>
-            <button onclick="closePunish()" class="w-full text-slate-500 hover:text-white text-xs font-bold mt-2">CANCEL</button>
-        </div>
-    </div>
-</div>
-
-<div id="app" class="max-w-6xl mx-auto p-4">
-    <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b border-slate-800 pb-4 gap-4">
-        <div class="flex items-center gap-4">
-            <h1 class="text-2xl font-black tracking-tighter text-indigo-500 underline decoration-indigo-800">HTML CHAT</h1>
-            <div class="flex gap-2">
-                <a href="https://github.com/LGYTreal/html-chat" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold">GitHub Repo</a>
-                <a href="https://github.com/LGYTreal/" target="_blank" class="gh-btn px-3 py-1 rounded-lg text-xs font-bold text-indigo-400">Created by LifeguardYT</a>
-            </div>
-        </div>
-        <div class="flex flex-col items-end">
-            <div id="user-info" class="font-bold text-slate-300 bg-slate-900 px-4 py-1 rounded-full border border-slate-800 flex items-center"></div>
-            <div id="debug-uid" class="text-[10px] text-slate-600 mt-1 uppercase tracking-widest"></div>
-        </div>
+<div id="app" class="max-w-5xl mx-auto p-4">
+    <header class="flex justify-between items-center mb-6 border-b border-slate-800 pb-3">
+        <h1 class="text-xl font-black text-indigo-500 tracking-tighter uppercase">HTML CHAT</h1>
+        <div id="user-info" class="flex items-center gap-3 bg-slate-900 px-4 py-2 rounded-full border border-slate-800 text-xs font-bold"></div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800">
-            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-2 rounded-lg mb-6 font-bold hover:bg-indigo-700">New Room</button>
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 h-fit">
+            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-black mb-4 text-xs uppercase hover:bg-indigo-500">New Room</button>
+            <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-1">Rooms</h3>
             <ul id="room-list" class="space-y-2"></ul>
         </div>
 
-        <div class="md:col-span-3 bg-slate-900 rounded-2xl border border-slate-800 flex flex-col overflow-hidden shadow-2xl">
-            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/80">
-                <h2 id="current-room-name" class="font-bold text-xl text-white"># global</h2>
-                <button id="btn-delete-room" class="hidden text-red-500 text-xs font-black border border-red-500/20 px-3 py-1 rounded-lg">DELETE ROOM</button>
+        <div class="md:col-span-3 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative shadow-xl">
+            <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex justify-between items-center">
+                <h2 id="current-room-name" class="font-black text-indigo-400 uppercase text-sm tracking-tight"># global</h2>
+                <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase">Delete Room</button>
             </div>
-            <div id="chat-messages" class="p-6 space-y-6 flex-1 bg-slate-950/30"></div>
+            
+            <div id="chat-messages" class="flex-1 p-5 space-y-5 bg-slate-950/10"></div>
+            
+            <div id="typing-indicator" class="px-6 py-1 text-[10px] text-slate-500 font-bold min-h-[20px]"></div>
 
-            <div class="p-4 bg-slate-900 border-t border-slate-800">
-                <div id="timeout-bar" class="hidden flex items-center justify-between bg-red-900/40 border border-red-500/30 p-2 rounded-xl mb-3">
-                    <div class="flex items-center gap-3">
-                        <span class="text-red-500 font-black italic animate-pulse text-sm">TIMED OUT</span>
-                        <span id="timeout-timer" class="font-mono text-white bg-red-600 px-2 rounded font-bold">00:00</span>
-                    </div>
-                    <button onclick="alert('Timeout Reason: ' + currentTimeoutReason)" class="text-[10px] bg-red-600/30 text-white px-2 py-1 rounded font-bold hover:bg-red-600">REASON</button>
-                </div>
-                <form id="chat-form" class="flex gap-3">
-                    <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white disabled:opacity-30 disabled:cursor-not-allowed">
-                    <button type="submit" id="btn-send" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30">Send</button>
-                </form>
+            <div id="emoji-container">
+                <div class="emoji-list" id="emoji-grid"></div>
             </div>
+
+            <form id="chat-form" class="p-4 flex gap-3 bg-slate-900 items-center border-t border-slate-800">
+                <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileUpload(this)">
+                <button type="button" onclick="document.getElementById('file-input').click()" class="text-slate-500 hover:text-indigo-400 p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </button>
+                <button type="button" onclick="toggleEmojiPicker()" class="text-2xl p-1">☺</button>
+                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold">
+                <button type="submit" class="bg-indigo-600 px-6 py-3 rounded-xl font-black text-white text-xs uppercase hover:bg-indigo-500">Send</button>
+            </form>
         </div>
     </div>
 </div>
 
-<div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[100]">
-    <div class="bg-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-800 text-center">
-        <h2 class="text-3xl font-black mb-6 text-indigo-500 uppercase tracking-tighter">HTML CHAT</h2>
-        <div class="space-y-4">
-            <input id="username-input" type="text" placeholder="Username" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none text-center">
-            <input id="password-input" type="password" placeholder="Password" class="bg-slate-800 border border-slate-700 p-3 w-full rounded-xl text-white outline-none text-center">
-            <button id="btn-login" class="bg-indigo-600 text-white w-full py-3 rounded-xl font-bold">Connect</button>
-        </div>
+<div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[1000]">
+    <div class="bg-slate-900 p-12 rounded-[2.5rem] border border-slate-800 w-full max-w-[400px] text-center shadow-2xl">
+        <h2 class="font-black text-4xl mb-10 text-indigo-500 tracking-tighter uppercase">HTML CHAT</h2>
+        <input id="username-input" type="text" placeholder="Username" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-4 font-bold">
+        <input id="password-input" type="password" placeholder="Password" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-8 font-bold">
+        <button id="btn-login" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-base text-white uppercase tracking-widest shadow-lg shadow-indigo-500/20">Login</button>
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, push, set, onValue, remove, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-
-    const firebaseConfig = {
+<script>
+    const config = {
         apiKey: "AIzaSyAfuvvQFw5lpk_UxjoquPAgRPM-6aRbWlQ",
         authDomain: "htmlchat-html.firebaseapp.com",
         projectId: "htmlchat-html",
-        storageBucket: "htmlchat-html.firebasestorage.app",
-        messagingSenderId: "836911909276",
-        appId: "1:836911909276:web:da4dcf0be833cd1ed1e059",
         databaseURL: "https://htmlchat-html-default-rtdb.firebaseio.com"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
+    firebase.initializeApp(config);
+    const db = firebase.database();
+    const auth = firebase.auth();
 
-    let currentUser = null, currentRoomId = 'global', isGlobalAdmin = false;
-    let currentTimeoutReason = "", isCurrentlyTimedOut = false, activePunishTarget = null;
-    const ADMIN_NAME = "LifeguardYT";
+    let currentUser = null, currentRoomId = 'global', typingTimeout;
+    const OWNER_NAME = "LifeguardYT";
+    const imgbbKey = "c09e7a9d1900d972efa208b86791302f";
 
-    // AUTH
-    document.getElementById('btn-login').onclick = async () => {
-        const name = document.getElementById('username-input').value.trim();
-        const pass = document.getElementById('password-input').value;
-        if(!name || pass.length < 6) return alert("Nickname and 6-char password required.");
-        const email = `${name.toLowerCase()}@chat.com`;
-        try {
-            try { await signInWithEmailAndPassword(auth, email, pass); }
-            catch (e) {
-                const cred = await createUserWithEmailAndPassword(auth, email, pass);
-                await updateProfile(cred.user, { displayName: name });
-            }
-            window.location.reload();
-        } catch (e) { alert(e.message); }
+    const emojiRanges = [[0x1F600, 0x1F64F], [0x1F680, 0x1F6C5], [0x1F400, 0x1F4D6], [0x1F300, 0x1F3FA], [0x2700, 0x27BF]];
+    const grid = document.getElementById('emoji-grid');
+    emojiRanges.forEach(range => {
+        for (let i = range[0]; i <= range[1]; i++) {
+            const el = document.createElement('div');
+            el.className = 'emoji-item';
+            el.innerHTML = String.fromCodePoint(i);
+            el.onclick = () => { document.getElementById('msg-input').value += el.innerHTML; };
+            grid.appendChild(el);
+        }
+    });
+    window.toggleEmojiPicker = () => document.getElementById('emoji-container').classList.toggle('active');
+
+    document.getElementById('btn-login').onclick = function() {
+        const u = document.getElementById('username-input').value.trim();
+        const p = document.getElementById('password-input').value;
+        if(!u || p.length < 6) return alert("Enter Nickname & 6+ character password");
+        auth.signInWithEmailAndPassword(u.toLowerCase() + "@chat.com", p).catch(() => {
+            return auth.createUserWithEmailAndPassword(u.toLowerCase() + "@chat.com", p).then(c => c.user.updateProfile({ displayName: u }));
+        }).then(() => window.location.reload());
     };
 
-    window.handleLogout = () => signOut(auth).then(() => window.location.reload());
-
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
+    auth.onAuthStateChanged(user => {
+        if(user) {
             currentUser = user;
-            document.getElementById('debug-uid').innerText = "UID: " + user.uid;
-            document.getElementById('login-screen').classList.add('hidden');
-            
-            // Check Admin
-            const adminSnap = await get(ref(db, `admins/${user.uid}`));
-            isGlobalAdmin = adminSnap.exists();
-
-            // Real-time Punishment Listener
-            onValue(ref(db, `punishments/${user.uid}`), (snap) => {
-                const p = snap.val();
-                if(!p) {
-                    document.body.classList.remove('is-banned');
-                    isCurrentlyTimedOut = false;
-                    document.getElementById('timeout-bar').classList.add('hidden');
-                    document.getElementById('msg-input').disabled = false;
-                    document.getElementById('btn-send').disabled = false;
-                    return;
-                }
-                
-                if(p.type === 'ban') {
-                    document.getElementById('ban-reason-text').innerText = p.reason;
-                    document.body.classList.add('is-banned');
-                } else if(p.type === 'timeout') {
-                    if (Date.now() < p.until) {
-                        currentTimeoutReason = p.reason;
-                        isCurrentlyTimedOut = true;
-                        startTimeoutTimer(p.until);
-                    } else {
-                        // Timeout expired
-                        remove(ref(db, `punishments/${user.uid}`));
-                    }
-                }
-            });
-
-            renderUserUI();
-            initApp();
+            document.getElementById('login-screen').style.display = 'none';
+            renderHeader();
+            loadRooms();
         }
     });
 
-    // PUNISHMENT LOGIC
-    window.openPunish = (uid, name) => {
-        if(!isGlobalAdmin) return;
-        activePunishTarget = { uid, name };
-        document.getElementById('punish-target-name').innerText = `Punish ${name}`;
-        document.getElementById('punish-modal').classList.remove('hidden');
-    };
+    function renderHeader() {
+        const isOwner = currentUser.displayName === OWNER_NAME;
+        document.getElementById('user-info').innerHTML = 
+            (isOwner ? '<span class="owner-tag">OWNER</span>' : '') +
+            `<span>${currentUser.displayName}</span>` +
+            `<button onclick="auth.signOut().then(()=>location.reload())" class="ml-4 text-slate-500 uppercase font-black hover:text-red-400 transition">Logout</button>`;
+    }
 
-    window.closePunish = () => {
-        document.getElementById('punish-modal').classList.add('hidden');
-        document.getElementById('punish-reason').value = "";
-    };
-
-    window.execPunish = async (type) => {
-        const reason = document.getElementById('punish-reason').value || "No reason provided.";
-        const targetRef = ref(db, `punishments/${activePunishTarget.uid}`);
-        
-        if(type === 'unpunish') { 
-            await remove(targetRef); 
-        } else if(type === 'ban') { 
-            await set(targetRef, { type: 'ban', reason, by: currentUser.displayName, timestamp: Date.now() }); 
-        } else if(type === 'timeout') {
-            const mins = parseInt(document.getElementById('timeout-mins').value) || 5;
-            await set(targetRef, { type: 'timeout', until: Date.now() + (mins * 60000), reason, by: currentUser.displayName, timestamp: Date.now() });
+    window.handleFileUpload = function(input) {
+        const file = input.files[0];
+        if(!file || imgbbKey === "YOUR_API_KEY_HERE") {
+            if(imgbbKey === "YOUR_API_KEY_HERE") alert("Please paste your API key in the code!");
+            return;
         }
-        closePunish();
+        
+        const uploadBtn = document.querySelector('button[onclick*="file-input"]');
+        const originalIcon = uploadBtn.innerHTML;
+        uploadBtn.innerHTML = '<span class="text-[10px] animate-pulse">...</span>';
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64Data = e.target.result.split(',')[1];
+            const formData = new FormData();
+            formData.append('image', base64Data);
+
+            try {
+                const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, { 
+                    method: "POST", 
+                    body: formData 
+                });
+                const data = await res.json();
+                if(data.success) {
+                    sendMessage(data.data.url, true);
+                } else {
+                    alert("Upload Error: " + data.error.message);
+                }
+            } catch (err) {
+                alert("Connection failed.");
+            }
+            uploadBtn.innerHTML = originalIcon;
+        };
+        reader.readAsDataURL(file);
     };
 
-    function startTimeoutTimer(until) {
-        const bar = document.getElementById('timeout-bar'), timer = document.getElementById('timeout-timer');
-        const input = document.getElementById('msg-input'), btn = document.getElementById('btn-send');
-        
-        const tick = () => {
-            const now = Date.now();
-            const diff = until - now;
-            
-            if(diff <= 0) { 
-                bar.classList.add('hidden'); 
-                input.disabled = false; 
-                btn.disabled = false; 
-                isCurrentlyTimedOut = false;
-                remove(ref(db, `punishments/${currentUser.uid}`)); // Clean up DB
-                return; 
-            }
-            
-            isCurrentlyTimedOut = true;
-            bar.classList.remove('hidden'); 
-            input.disabled = true; 
-            btn.disabled = true;
-            
-            const m = Math.floor(diff/60000), s = Math.floor((diff%60000)/1000);
-            timer.innerText = `${m}:${s.toString().padStart(2,'0')}`;
-            setTimeout(tick, 1000);
-        };
-        tick();
+    const msgInput = document.getElementById('msg-input');
+    msgInput.oninput = () => {
+        db.ref(`typing/${currentRoomId}/${currentUser.uid}`).set(currentUser.displayName);
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove(), 2000);
+    };
+
+    function listenTyping(rid) {
+        db.ref(`typing/${rid}`).on('value', snap => {
+            const users = snap.val() ? Object.values(snap.val()).filter(n => n !== currentUser.displayName) : [];
+            document.getElementById('typing-indicator').innerText = users.length ? `${users.join(', ')} is typing...` : '';
+        });
     }
 
-    function renderUserUI() {
-        document.getElementById('user-info').innerHTML = `
-            ${isGlobalAdmin ? '<span class="owner-tag">OWNER</span>' : ''}
-            <span>${currentUser.displayName}</span>
-            <button onclick="handleLogout()" class="ml-4 text-[10px] text-slate-500 hover:text-white font-bold">LOGOUT</button>
-        `;
-    }
+    window.deleteMsg = function(rid, mid) {
+        if(confirm("Delete message?")) db.ref(`messages/${rid}/${mid}`).remove();
+    };
 
-    function initApp() {
-        onValue(ref(db, 'rooms'), (snap) => {
-            const list = document.getElementById('room-list');
-            list.innerHTML = `<li onclick="switchRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-bold"># global</li>`;
+    document.getElementById('btn-delete-room').onclick = function() {
+        if(confirm("Delete this room?")) {
+            db.ref(`rooms/${currentRoomId}`).remove();
+            db.ref(`messages/${currentRoomId}`).remove();
+            joinRoom('global', 'global');
+        }
+    };
+
+    function loadRooms() {
+        db.ref('rooms').on('value', snap => {
+            const l = document.getElementById('room-list');
+            l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs transition"># global</li>`;
             snap.forEach(c => {
                 const r = c.val();
-                list.innerHTML += `<li onclick="switchRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-300 font-semibold flex justify-between items-center transition border border-transparent hover:border-slate-700">
-                    <span># ${r.name}</span> ${r.password ? '🔒' : ''}
+                l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center transition">
+                    <span># ${r.name}</span> 
+                    ${r.password ? `<span>🔒</span>` : ''}
                 </li>`;
             });
         });
-        switchRoom('global', 'global');
+        joinRoom('global', 'global');
     }
 
-    window.switchRoom = async (rid, rname) => {
-        currentRoomId = rid;
-        document.getElementById('current-room-name').innerText = `# ${rname}`;
-        if(rid !== 'global') {
-            const s = await get(ref(db, `rooms/${rid}`));
-            const d = s.val();
-            if(d.password && prompt(`Password: ${isGlobalAdmin ? '(Admin View: '+d.password+')' : ''}`) !== d.password) return switchRoom('global', 'global');
-            document.getElementById('btn-delete-room').classList.toggle('hidden', !(d.owner === currentUser.uid || isGlobalAdmin));
-        } else document.getElementById('btn-delete-room').classList.add('hidden');
-        loadMessages(rid);
-    };
+    function joinRoom(rid, rname) {
+        db.ref('rooms/' + rid).once('value', snap => {
+            const d = snap.val();
+            const isOwner = currentUser && currentUser.displayName === OWNER_NAME;
+            
+            if(rid !== 'global' && d && d.password) {
+                const msg = isOwner ? `Enter Password (Current: ${d.password})` : "Locked Room. Enter Password:";
+                const p = prompt(msg);
+                if(p !== d.password) return alert("Access Denied");
+            }
+            
+            currentRoomId = rid;
+            document.getElementById('current-room-name').innerText = "# " + rname;
+            listenTyping(rid);
 
-    function loadMessages(rid) {
-        onValue(ref(db, `messages/${rid}`), (snap) => {
-            const cont = document.getElementById('chat-messages');
-            cont.innerHTML = '';
-            snap.forEach(c => {
-                const m = c.val(), mid = c.key, isAdm = m.userName === ADMIN_NAME;
-                const d = document.createElement('div');
-                d.className = "group flex flex-col";
-                d.innerHTML = `
-                    <div class="flex items-center gap-2 mb-1 px-1">
-                        <span onclick="openPunish('${m.userId}', '${m.userName}')" class="cursor-pointer text-[10px] font-black uppercase ${isAdm ? 'text-red-500' : 'text-indigo-400'}">
-                            ${isAdm ? '[OWNER] ' : ''}${m.userName}
-                        </span>
-                        ${(m.userId === currentUser.uid || isGlobalAdmin) ? `<button onclick="deleteMsg('${mid}')" class="hidden group-hover:block text-[9px] text-slate-500 font-bold hover:text-red-500 uppercase">Delete</button>` : ''}
-                    </div>
-                    <div class="bg-slate-900 p-4 rounded-2xl rounded-tl-none border border-slate-800 text-sm max-w-[85%] text-slate-200">${m.text}</div>
-                `;
-                cont.appendChild(d);
+            const hasDeleteRights = isOwner || (d && d.owner === currentUser.uid);
+            document.getElementById('btn-delete-room').classList.toggle('hidden', !hasDeleteRights);
+            
+            db.ref('messages/' + rid).off();
+            db.ref('messages/' + rid).limitToLast(50).on('value', snap => {
+                const cont = document.getElementById('chat-messages');
+                cont.innerHTML = '';
+                snap.forEach(c => {
+                    const m = c.val(), mid = c.key;
+                    const msgOwner = m.userName === OWNER_NAME;
+                    const canDelete = isOwner || m.userId === currentUser.uid;
+
+                    cont.innerHTML += `<div class="group flex flex-col">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-black uppercase ${msgOwner ? 'text-red-500' : 'text-indigo-400'}">
+                                ${msgOwner ? '[OWNER] ' : ''}${m.userName}
+                            </span>
+                            ${canDelete ? `<button onclick="deleteMsg('${rid}', '${mid}')" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}
+                        </div>
+                        <div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%] shadow-sm">
+                            ${m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : m.text}
+                        </div>
+                    </div>`;
+                });
+                cont.scrollTop = cont.scrollHeight;
             });
-            cont.scrollTop = cont.scrollHeight;
         });
     }
 
-    window.deleteMsg = (mid) => confirm("Delete message?") && remove(ref(db, `messages/${currentRoomId}/${mid}`));
+    function sendMessage(text, isImg = false) {
+        if(!text.trim()) return;
+        db.ref('messages/' + currentRoomId).push({ text, userName: currentUser.displayName, userId: currentUser.uid, isImage: isImg });
+        db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove();
+    }
 
-    document.getElementById('chat-form').onsubmit = async (e) => {
+    document.getElementById('chat-form').onsubmit = (e) => {
         e.preventDefault();
-        const i = document.getElementById('msg-input');
-        
-        // FINAL BLOCKER: Even if input is enabled, check local timeout state
-        if(!i.value.trim() || i.disabled || isCurrentlyTimedOut) {
-            if(isCurrentlyTimedOut) alert("You are currently timed out!");
-            return;
-        }
-
-        await push(ref(db, `messages/${currentRoomId}`), { 
-            text: i.value, 
-            userId: currentUser.uid, 
-            userName: currentUser.displayName, 
-            timestamp: Date.now() 
-        });
-        i.value = '';
+        sendMessage(msgInput.value);
+        msgInput.value = '';
     };
 
-    document.getElementById('btn-create-room').onclick = async () => {
-        const n = prompt("Room Name:");
-        if(!n) return;
-        const p = prompt("Password (optional):");
-        await set(push(ref(db, 'rooms')), { name: n, owner: currentUser.uid, password: p || null, createdAt: Date.now() });
+    document.getElementById('btn-create-room').onclick = () => {
+        const n = prompt("Room Name:"); if(!n) return;
+        const p = prompt("Room Password (leave blank for none):");
+        db.ref('rooms').push({ name: n, owner: currentUser.uid, password: p || null });
     };
-
-    document.getElementById('btn-delete-room').onclick = async () => confirm("Delete room?") && (await remove(ref(db, `rooms/${currentRoomId}`)), switchRoom('global', 'global'));
 </script>
 </body>
 </html>
