@@ -18,3 +18,9 @@ A LOT of stuff added! Check commit mssg.
 # Release 2.1.0
 
 Add GIF's and Stickers
+
+# Release 2.1.1
+
+Add update notifs.
+Add link support.
+Fix bugs.
