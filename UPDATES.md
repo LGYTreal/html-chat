@@ -10,3 +10,11 @@
 # Release 1.0.0
 
 Official first release of HTML chat.
+
+# Release 2.0.0
+
+A LOT of stuff added! Check commit mssg.
+
+# Release 2.1.0
+
+Add GIF's and Stickers

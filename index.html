@@ -14,11 +14,14 @@
         body { font-family: 'Inter', sans-serif; font-size: 14px; }
         #chat-messages { height: 420px; overflow-y: auto; scroll-behavior: smooth; }
         .owner-tag { color: #ff4d4d; font-weight: 900; border: 1px solid #ff4d4d; padding: 0 4px; border-radius: 3px; font-size: 0.7rem; margin-right: 4px; background: rgba(255, 77, 77, 0.1); }
-        #emoji-container { display: none; position: absolute; bottom: 80px; right: 10px; width: 280px; height: 320px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; flex-direction: column; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); }
-        #emoji-container.active { display: flex; }
+        .picker-panel { display: none; position: absolute; bottom: 85px; right: 10px; width: 320px; height: 400px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; flex-direction: column; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4); overflow: hidden; }
+        .picker-panel.active { display: flex; }
         .emoji-list { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; padding: 10px; overflow-y: auto; }
         .emoji-item { cursor: pointer; font-size: 1.4rem; text-align: center; padding: 4px; border-radius: 6px; }
         .emoji-item:hover { background: #334155; }
+        #giphy-results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 10px; overflow-y: auto; flex: 1; }
+        .giphy-img { width: 100%; height: 100px; object-fit: cover; border-radius: 6px; cursor: pointer; background: #0f172a; border: 1px solid transparent; }
+        .giphy-img:hover { border-color: #6366f1; }
         .chat-img { max-width: 220px; border-radius: 10px; margin-top: 5px; border: 1px solid #334155; cursor: pointer; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -34,7 +37,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 h-fit">
-            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-black mb-4 text-xs uppercase hover:bg-indigo-500">New Room</button>
+            <button id="btn-create-room" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-black mb-4 text-xs uppercase hover:bg-indigo-500 transition">New Room</button>
             <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 px-1">Rooms</h3>
             <ul id="room-list" class="space-y-2"></ul>
         </div>
@@ -42,25 +45,37 @@
         <div class="md:col-span-3 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative shadow-xl">
             <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex justify-between items-center">
                 <h2 id="current-room-name" class="font-black text-indigo-400 uppercase text-sm tracking-tight"># global</h2>
-                <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase">Delete Room</button>
+                <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase transition">Delete Room</button>
             </div>
             
             <div id="chat-messages" class="flex-1 p-5 space-y-5 bg-slate-950/10"></div>
-            
             <div id="typing-indicator" class="px-6 py-1 text-[10px] text-slate-500 font-bold min-h-[20px]"></div>
 
-            <div id="emoji-container">
+            <div id="emoji-container" class="picker-panel">
+                <div class="p-3 border-b border-slate-700 text-[10px] font-black uppercase text-slate-400">Emojis</div>
                 <div class="emoji-list" id="emoji-grid"></div>
             </div>
 
-            <form id="chat-form" class="p-4 flex gap-3 bg-slate-900 items-center border-t border-slate-800">
+            <div id="giphy-container" class="picker-panel">
+                <div class="p-2 bg-slate-800 flex flex-col gap-2">
+                    <div class="flex gap-1">
+                        <button onclick="setGiphyMode('gifs')" id="mode-gifs" class="flex-1 bg-indigo-600 text-[9px] font-black uppercase py-2 rounded transition">GIFs</button>
+                        <button onclick="setGiphyMode('stickers')" id="mode-stickers" class="flex-1 bg-slate-700 text-[9px] font-black uppercase py-2 rounded transition">Stickers</button>
+                    </div>
+                    <input type="text" id="giphy-search" placeholder="Search Giphy..." class="w-full bg-slate-900 border border-slate-700 p-2 rounded text-xs outline-none focus:border-indigo-500" oninput="searchGiphy(this.value)">
+                </div>
+                <div id="giphy-results"></div>
+            </div>
+
+            <form id="chat-form" class="p-4 flex gap-2 bg-slate-900 items-center border-t border-slate-800">
                 <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileUpload(this)">
-                <button type="button" onclick="document.getElementById('file-input').click()" class="text-slate-500 hover:text-indigo-400 p-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <button type="button" onclick="document.getElementById('file-input').click()" class="text-slate-500 hover:text-indigo-400 p-1 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </button>
-                <button type="button" onclick="toggleEmojiPicker()" class="text-2xl p-1">☺</button>
-                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold">
-                <button type="submit" class="bg-indigo-600 px-6 py-3 rounded-xl font-black text-white text-xs uppercase hover:bg-indigo-500">Send</button>
+                <button type="button" onclick="togglePicker('giphy-container')" class="text-indigo-400 font-black text-[10px] border border-indigo-400/30 px-2 py-1.5 rounded hover:bg-indigo-400/10 transition uppercase">GIF</button>
+                <button type="button" onclick="togglePicker('emoji-container')" class="text-xl p-1 hover:scale-110 transition-transform">☺</button>
+                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold placeholder:text-slate-600 focus:border-indigo-500/50">
+                <button type="submit" class="bg-indigo-600 px-6 py-3 rounded-xl font-black text-white text-xs uppercase hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">Send</button>
             </form>
         </div>
     </div>
@@ -69,9 +84,9 @@
 <div id="login-screen" class="fixed inset-0 bg-slate-950 flex items-center justify-center z-[1000]">
     <div class="bg-slate-900 p-12 rounded-[2.5rem] border border-slate-800 w-full max-w-[400px] text-center shadow-2xl">
         <h2 class="font-black text-4xl mb-10 text-indigo-500 tracking-tighter uppercase">HTML CHAT</h2>
-        <input id="username-input" type="text" placeholder="Username" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-4 font-bold">
-        <input id="password-input" type="password" placeholder="Password" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-8 font-bold">
-        <button id="btn-login" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-base text-white uppercase tracking-widest shadow-lg shadow-indigo-500/20">Login</button>
+        <input id="username-input" type="text" placeholder="Username" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-4 font-bold focus:border-indigo-500">
+        <input id="password-input" type="password" placeholder="Password" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-8 font-bold focus:border-indigo-500">
+        <button id="btn-login" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-base text-white uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition">Login</button>
     </div>
 </div>
 
@@ -84,124 +99,95 @@
     };
 
     firebase.initializeApp(config);
-    const db = firebase.database();
-    const auth = firebase.auth();
-
+    const db = firebase.database(), auth = firebase.auth();
     let currentUser = null, currentRoomId = 'global', typingTimeout;
+    
     const OWNER_NAME = "LifeguardYT";
     const imgbbKey = "c09e7a9d1900d972efa208b86791302f";
+    const giphyKey = "U8FQHbTTheXOYbKCIbe7hixypxgKRNeI";
 
-    const emojiRanges = [[0x1F600, 0x1F64F], [0x1F680, 0x1F6C5], [0x1F400, 0x1F4D6], [0x1F300, 0x1F3FA], [0x2700, 0x27BF]];
-    const grid = document.getElementById('emoji-grid');
-    emojiRanges.forEach(range => {
-        for (let i = range[0]; i <= range[1]; i++) {
-            const el = document.createElement('div');
-            el.className = 'emoji-item';
-            el.innerHTML = String.fromCodePoint(i);
-            el.onclick = () => { document.getElementById('msg-input').value += el.innerHTML; };
-            grid.appendChild(el);
+    window.togglePicker = (id) => {
+        const panels = ['emoji-container', 'giphy-container'];
+        panels.forEach(p => {
+            const el = document.getElementById(p);
+            if(p === id) el.classList.toggle('active');
+            else el.classList.remove('active');
+        });
+    };
+
+    const ranges = [[0x1F600, 0x1F64F], [0x1F680, 0x1F6C5], [0x1F400, 0x1F4D6]];
+    ranges.forEach(r => {
+        for (let i = r[0]; i <= r[1]; i++) {
+            const d = document.createElement('div');
+            d.className = 'emoji-item'; d.innerHTML = String.fromCodePoint(i);
+            d.onclick = () => { document.getElementById('msg-input').value += d.innerHTML; };
+            document.getElementById('emoji-grid').appendChild(d);
         }
     });
-    window.toggleEmojiPicker = () => document.getElementById('emoji-container').classList.toggle('active');
 
-    document.getElementById('btn-login').onclick = function() {
-        const u = document.getElementById('username-input').value.trim();
-        const p = document.getElementById('password-input').value;
-        if(!u || p.length < 6) return alert("Enter Nickname & 6+ character password");
+    let giphyMode = 'gifs', gDebounce;
+    window.setGiphyMode = (m) => {
+        giphyMode = m;
+        document.getElementById('mode-gifs').className = m === 'gifs' ? 'flex-1 bg-indigo-600 text-[9px] font-black uppercase py-2 rounded' : 'flex-1 bg-slate-700 text-[9px] font-black uppercase py-2 rounded';
+        document.getElementById('mode-stickers').className = m === 'stickers' ? 'flex-1 bg-indigo-600 text-[9px] font-black uppercase py-2 rounded' : 'flex-1 bg-slate-700 text-[9px] font-black uppercase py-2 rounded';
+        searchGiphy(document.getElementById('giphy-search').value);
+    };
+
+    window.searchGiphy = (q) => {
+        clearTimeout(gDebounce);
+        gDebounce = setTimeout(async () => {
+            if(!giphyKey || giphyKey.includes("YOUR")) return;
+            const endpoint = q ? 'search' : 'trending';
+            const url = `https://api.giphy.com/v1/${giphyMode}/${endpoint}?api_key=${giphyKey}&q=${q}&limit=20&rating=g`;
+            const res = await fetch(url);
+            const { data } = await res.json();
+            const box = document.getElementById('giphy-results');
+            box.innerHTML = '';
+            data.forEach(g => {
+                const img = document.createElement('img');
+                img.src = g.images.fixed_height_small.url;
+                img.className = 'giphy-img';
+                img.onclick = () => { sendMessage(g.images.fixed_height.url, true); togglePicker(''); };
+                box.appendChild(img);
+            });
+        }, 400);
+    };
+    searchGiphy('');
+
+    document.getElementById('btn-login').onclick = () => {
+        const u = document.getElementById('username-input').value.trim(), p = document.getElementById('password-input').value;
+        if(!u || p.length < 6) return alert("Nickname & 6+ chars required");
         auth.signInWithEmailAndPassword(u.toLowerCase() + "@chat.com", p).catch(() => {
             return auth.createUserWithEmailAndPassword(u.toLowerCase() + "@chat.com", p).then(c => c.user.updateProfile({ displayName: u }));
         }).then(() => window.location.reload());
     };
 
-    auth.onAuthStateChanged(user => {
-        if(user) {
-            currentUser = user;
-            document.getElementById('login-screen').style.display = 'none';
-            renderHeader();
-            loadRooms();
-        }
-    });
+    auth.onAuthStateChanged(u => { if(u) { currentUser = u; document.getElementById('login-screen').style.display = 'none'; renderHeader(); loadRooms(); } });
 
     function renderHeader() {
         const isOwner = currentUser.displayName === OWNER_NAME;
-        document.getElementById('user-info').innerHTML = 
-            (isOwner ? '<span class="owner-tag">OWNER</span>' : '') +
-            `<span>${currentUser.displayName}</span>` +
-            `<button onclick="auth.signOut().then(()=>location.reload())" class="ml-4 text-slate-500 uppercase font-black hover:text-red-400 transition">Logout</button>`;
+        document.getElementById('user-info').innerHTML = (isOwner ? '<span class="owner-tag">OWNER</span>' : '') + `<span>${currentUser.displayName}</span><button onclick="auth.signOut().then(()=>location.reload())" class="ml-4 text-slate-500 font-black hover:text-red-400 uppercase text-[10px]">Logout</button>`;
     }
 
-    window.handleFileUpload = function(input) {
-        const file = input.files[0];
-        if(!file || imgbbKey === "YOUR_API_KEY_HERE") {
-            if(imgbbKey === "YOUR_API_KEY_HERE") alert("Please paste your API key in the code!");
-            return;
-        }
-        
-        const uploadBtn = document.querySelector('button[onclick*="file-input"]');
-        const originalIcon = uploadBtn.innerHTML;
-        uploadBtn.innerHTML = '<span class="text-[10px] animate-pulse">...</span>';
-
+    window.handleFileUpload = (input) => {
+        const file = input.files[0]; if(!file || imgbbKey.includes("YOUR")) return;
         const reader = new FileReader();
-        reader.onload = async function(e) {
-            const base64Data = e.target.result.split(',')[1];
-            const formData = new FormData();
-            formData.append('image', base64Data);
-
-            try {
-                const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, { 
-                    method: "POST", 
-                    body: formData 
-                });
-                const data = await res.json();
-                if(data.success) {
-                    sendMessage(data.data.url, true);
-                } else {
-                    alert("Upload Error: " + data.error.message);
-                }
-            } catch (err) {
-                alert("Connection failed.");
-            }
-            uploadBtn.innerHTML = originalIcon;
+        reader.onload = async (e) => {
+            const body = new FormData(); body.append('image', e.target.result.split(',')[1]);
+            const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, { method: "POST", body });
+            const data = await res.json();
+            if(data.success) sendMessage(data.data.url, true);
         };
         reader.readAsDataURL(file);
-    };
-
-    const msgInput = document.getElementById('msg-input');
-    msgInput.oninput = () => {
-        db.ref(`typing/${currentRoomId}/${currentUser.uid}`).set(currentUser.displayName);
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove(), 2000);
-    };
-
-    function listenTyping(rid) {
-        db.ref(`typing/${rid}`).on('value', snap => {
-            const users = snap.val() ? Object.values(snap.val()).filter(n => n !== currentUser.displayName) : [];
-            document.getElementById('typing-indicator').innerText = users.length ? `${users.join(', ')} is typing...` : '';
-        });
-    }
-
-    window.deleteMsg = function(rid, mid) {
-        if(confirm("Delete message?")) db.ref(`messages/${rid}/${mid}`).remove();
-    };
-
-    document.getElementById('btn-delete-room').onclick = function() {
-        if(confirm("Delete this room?")) {
-            db.ref(`rooms/${currentRoomId}`).remove();
-            db.ref(`messages/${currentRoomId}`).remove();
-            joinRoom('global', 'global');
-        }
     };
 
     function loadRooms() {
         db.ref('rooms').on('value', snap => {
             const l = document.getElementById('room-list');
-            l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs transition"># global</li>`;
+            l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs"># global</li>`;
             snap.forEach(c => {
                 const r = c.val();
-                l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center transition">
-                    <span># ${r.name}</span> 
-                    ${r.password ? `<span>🔒</span>` : ''}
-                </li>`;
+                l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center transition"><span># ${r.name}</span> ${r.password ? `<span>🔒</span>` : ''}</li>`;
             });
         });
         joinRoom('global', 'global');
@@ -209,44 +195,22 @@
 
     function joinRoom(rid, rname) {
         db.ref('rooms/' + rid).once('value', snap => {
-            const d = snap.val();
-            const isOwner = currentUser && currentUser.displayName === OWNER_NAME;
-            
+            const d = snap.val(); const isOwner = currentUser.displayName === OWNER_NAME;
             if(rid !== 'global' && d && d.password) {
-                const msg = isOwner ? `Enter Password (Current: ${d.password})` : "Locked Room. Enter Password:";
-                const p = prompt(msg);
-                if(p !== d.password) return alert("Access Denied");
+                const p = prompt(isOwner ? `Room Password: ${d.password}` : "Locked. Password:");
+                if(p !== d.password) return alert("Denied");
             }
-            
-            currentRoomId = rid;
-            document.getElementById('current-room-name').innerText = "# " + rname;
-            listenTyping(rid);
-
-            const hasDeleteRights = isOwner || (d && d.owner === currentUser.uid);
-            document.getElementById('btn-delete-room').classList.toggle('hidden', !hasDeleteRights);
-            
+            currentRoomId = rid; document.getElementById('current-room-name').innerText = "# " + rname;
+            const canDel = isOwner || (d && d.owner === currentUser.uid);
+            document.getElementById('btn-delete-room').classList.toggle('hidden', !canDel);
             db.ref('messages/' + rid).off();
-            db.ref('messages/' + rid).limitToLast(50).on('value', snap => {
-                const cont = document.getElementById('chat-messages');
-                cont.innerHTML = '';
-                snap.forEach(c => {
-                    const m = c.val(), mid = c.key;
-                    const msgOwner = m.userName === OWNER_NAME;
-                    const canDelete = isOwner || m.userId === currentUser.uid;
-
-                    cont.innerHTML += `<div class="group flex flex-col">
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="text-[10px] font-black uppercase ${msgOwner ? 'text-red-500' : 'text-indigo-400'}">
-                                ${msgOwner ? '[OWNER] ' : ''}${m.userName}
-                            </span>
-                            ${canDelete ? `<button onclick="deleteMsg('${rid}', '${mid}')" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}
-                        </div>
-                        <div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%] shadow-sm">
-                            ${m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : m.text}
-                        </div>
-                    </div>`;
+            db.ref('messages/' + rid).limitToLast(50).on('value', s => {
+                const box = document.getElementById('chat-messages'); box.innerHTML = '';
+                s.forEach(c => {
+                    const m = c.val(), isMsgOwner = m.userName === OWNER_NAME;
+                    box.innerHTML += `<div class="group flex flex-col"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">${isMsgOwner ? '[OWNER] ' : ''}${m.userName}</span>${(isOwner || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${rid}/${c.key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase transition">Delete</button>` : ''}</div><div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%] shadow-sm">${m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : m.text}</div></div>`;
                 });
-                cont.scrollTop = cont.scrollHeight;
+                box.scrollTop = box.scrollHeight;
             });
         });
     }
@@ -254,18 +218,13 @@
     function sendMessage(text, isImg = false) {
         if(!text.trim()) return;
         db.ref('messages/' + currentRoomId).push({ text, userName: currentUser.displayName, userId: currentUser.uid, isImage: isImg });
-        db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove();
     }
 
-    document.getElementById('chat-form').onsubmit = (e) => {
-        e.preventDefault();
-        sendMessage(msgInput.value);
-        msgInput.value = '';
-    };
+    document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const i = document.getElementById('msg-input'); sendMessage(i.value); i.value = ''; };
 
     document.getElementById('btn-create-room').onclick = () => {
         const n = prompt("Room Name:"); if(!n) return;
-        const p = prompt("Room Password (leave blank for none):");
+        const p = prompt("Password (blank for public):");
         db.ref('rooms').push({ name: n, owner: currentUser.uid, password: p || null });
     };
 </script>
