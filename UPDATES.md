@@ -24,3 +24,7 @@ Add GIF's and Stickers
 Add update notifs.
 Add link support.
 Fix bugs.
+
+# Release 2.2.0
+
+Added ability to lock your rooms. And fixed a LOT of bugs.

@@ -10,7 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; font-size: 14px; }
         #chat-messages { height: 420px; overflow-y: auto; scroll-behavior: smooth; }
         .owner-tag { color: #ff4d4d; font-weight: 900; border: 1px solid #ff4d4d; padding: 0 4px; border-radius: 3px; font-size: 0.7rem; margin-right: 4px; background: rgba(255, 77, 77, 0.1); }
@@ -51,11 +51,20 @@
         <div class="md:col-span-3 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative shadow-xl">
             <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex justify-between items-center">
                 <h2 id="current-room-name" class="font-black text-indigo-400 uppercase text-sm tracking-tight"># global</h2>
-                <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase transition">Delete Room</button>
+                <div class="flex gap-2">
+                    <button id="btn-lock-room" class="hidden text-orange-500 text-[10px] font-black border border-orange-500/30 px-3 py-1.5 rounded hover:bg-orange-500/10 uppercase transition">Lock</button>
+                    <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase transition">Delete</button>
+                </div>
             </div>
             
             <div id="chat-messages" class="flex-1 p-5 space-y-5 bg-slate-950/10"></div>
             
+            <div id="typing-indicator" class="hidden px-6 py-1 text-[10px] text-white font-black uppercase tracking-widest min-h-[24px] bg-indigo-600/20 border-t border-indigo-500/20"></div>
+            
+            <div id="lock-notice" class="hidden p-4 bg-slate-950/80 text-center text-xs font-black text-orange-500 uppercase tracking-widest border-t border-slate-800">
+                🔒 This room is locked.
+            </div>
+
             <div id="emoji-container" class="picker-panel">
                 <div class="p-3 border-b border-slate-700 text-[10px] font-black uppercase text-slate-400">Emojis</div>
                 <div class="emoji-list" id="emoji-grid"></div>
@@ -79,7 +88,7 @@
                 </button>
                 <button type="button" onclick="togglePicker('giphy-container')" class="text-indigo-400 font-black text-[10px] border border-indigo-400/30 px-2 py-1.5 rounded hover:bg-indigo-400/10 transition uppercase">GIF</button>
                 <button type="button" onclick="togglePicker('emoji-container')" class="text-xl p-1 hover:scale-110 transition-transform">☺</button>
-                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold placeholder:text-slate-600 focus:border-indigo-500/50">
+                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold placeholder:text-slate-600 focus:border-indigo-500/50" oninput="updateTypingStatus()">
                 <button type="submit" class="bg-indigo-600 px-6 py-3 rounded-xl font-black text-white text-xs uppercase hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">Send</button>
             </form>
         </div>
@@ -105,52 +114,41 @@
 
     firebase.initializeApp(config);
     const db = firebase.database(), auth = firebase.auth();
-    let currentUser = null, currentRoomId = 'global', initialLoad = true;
-    let messageCount = 0;
+    let currentUser = null, currentRoomId = 'global', initialLoad = true, messageCount = 0;
+    let typingTimeout, isTypingInDB = false;
+    let runtimeKeys = { giphyKey: "", imgbbKey: "" };
     
-    const CURRENT_VERSION = "2.1.1"; 
-    const OWNER_NAME = "LifeguardYT";
-    const imgbbKey = "c09e7a9d1900d972efa208b86791302f"; 
-    const giphyKey = "U8FQHbTTheXOYbKCIbe7hixypxgKRNeI"; 
-    
+    const CURRENT_VERSION = "2.2.0", OWNER_NAME = "LifeguardYT";
     const notifSound = new Audio('notif.wav');
     notifSound.volume = 1.0;
 
-    db.ref('app_settings').on('value', snap => {
+    db.ref('api_keys').on('value', snap => {
         const data = snap.val();
         if (data) {
-            const cloudVersion = String(data.version || "").trim();
-            const localVersion = String(CURRENT_VERSION).trim();
-            if (cloudVersion !== "" && cloudVersion !== localVersion) {
-                const updateBar = document.getElementById('update-notif');
-                updateBar.classList.remove('hidden');
-                document.getElementById('new-version-text').innerText = cloudVersion;
-                document.getElementById('update-link').onclick = (e) => {
-                    e.preventDefault();
-                    const url = data.updateURL || data.updateUrl;
-                    if (url) window.open(url.trim(), '_blank');
-                };
-            } else {
-                document.getElementById('update-notif').classList.add('hidden');
-            }
+            runtimeKeys.giphyKey = data.giphyKey || "";
+            runtimeKeys.imgbbKey = data.imgbbKey || "";
+            searchGiphy('');
+        }
+    });
+
+    db.ref('app_settings').on('value', snap => {
+        const data = snap.val();
+        if (data && data.version !== CURRENT_VERSION) {
+            document.getElementById('update-notif').classList.remove('hidden');
+            document.getElementById('new-version-text').innerText = data.version;
+            document.getElementById('update-link').onclick = (e) => { e.preventDefault(); window.open((data.updateURL || data.updateUrl), '_blank'); };
         }
     });
 
     window.togglePicker = (id) => {
-        const panels = ['emoji-container', 'giphy-container'];
-        panels.forEach(p => {
-            const el = document.getElementById(p);
-            if(p === id) el.classList.toggle('active');
-            else el.classList.remove('active');
-        });
+        ['emoji-container', 'giphy-container'].forEach(p => document.getElementById(p).classList[p === id ? 'toggle' : 'remove']('active'));
     };
 
     const ranges = [[0x1F600, 0x1F64F], [0x1F680, 0x1F6C5], [0x1F400, 0x1F4D6]];
     ranges.forEach(r => {
         for (let i = r[0]; i <= r[1]; i++) {
-            const d = document.createElement('div');
-            d.className = 'emoji-item'; d.innerHTML = String.fromCodePoint(i);
-            d.onclick = () => { document.getElementById('msg-input').value += d.innerHTML; };
+            const d = document.createElement('div'); d.className = 'emoji-item'; d.innerHTML = String.fromCodePoint(i);
+            d.onclick = () => { document.getElementById('msg-input').value += d.innerHTML; updateTypingStatus(); };
             document.getElementById('emoji-grid').appendChild(d);
         }
     });
@@ -164,32 +162,24 @@
     };
 
     window.searchGiphy = (q) => {
+        if (!runtimeKeys.giphyKey) return;
         clearTimeout(gDebounce);
         gDebounce = setTimeout(async () => {
-            if(!giphyKey || giphyKey.includes("YOUR")) return;
-            const endpoint = q ? 'search' : 'trending';
-            const url = `https://api.giphy.com/v1/${giphyMode}/${endpoint}?api_key=${giphyKey}&q=${q}&limit=20&rating=g`;
-            const res = await fetch(url);
+            const res = await fetch(`https://api.giphy.com/v1/${giphyMode}/${q ? 'search' : 'trending'}?api_key=${runtimeKeys.giphyKey}&q=${q}&limit=20&rating=g`);
             const { data } = await res.json();
-            const box = document.getElementById('giphy-results');
-            box.innerHTML = '';
+            const box = document.getElementById('giphy-results'); box.innerHTML = '';
             data.forEach(g => {
-                const img = document.createElement('img');
-                img.src = g.images.fixed_height_small.url;
-                img.className = 'giphy-img';
+                const img = document.createElement('img'); img.src = g.images.fixed_height_small.url; img.className = 'giphy-img';
                 img.onclick = () => { sendMessage(g.images.fixed_height.url, true); togglePicker(''); };
                 box.appendChild(img);
             });
         }, 400);
     };
-    searchGiphy('');
 
     document.getElementById('btn-login').onclick = () => {
         const u = document.getElementById('username-input').value.trim(), p = document.getElementById('password-input').value;
-        if(!u || p.length < 6) return alert("Nickname & 6+ chars required");
-        auth.signInWithEmailAndPassword(u + "@chat.com", p).catch(() => {
-            return auth.createUserWithEmailAndPassword(u + "@chat.com", p).then(c => c.user.updateProfile({ displayName: u }));
-        }).then(() => window.location.reload());
+        if(!u || p.length < 6) return alert("Error");
+        auth.signInWithEmailAndPassword(u + "@chat.com", p).catch(() => auth.createUserWithEmailAndPassword(u + "@chat.com", p).then(c => c.user.updateProfile({ displayName: u }))).then(() => window.location.reload());
     };
 
     auth.onAuthStateChanged(u => { 
@@ -198,6 +188,7 @@
             document.getElementById('login-screen').style.display = 'none'; 
             renderHeader(); 
             loadRooms(); 
+            joinRoom('global', 'global', true);
         } 
     });
 
@@ -206,19 +197,15 @@
         document.getElementById('user-info').innerHTML = (isOwner ? '<span class="owner-tag">OWNER</span>' : '') + `<span>${currentUser.displayName}</span><button onclick="auth.signOut().then(()=>location.reload())" class="ml-4 text-slate-500 font-black hover:text-red-400 uppercase text-[10px]">Logout</button>`;
     }
 
-    function formatLinks(text) {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return text.replace(urlRegex, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="chat-link">${url}</a>`);
-    }
+    function formatLinks(text) { return text.replace(/(https?:\/\/[^\s]+)/g, (url) => `<a href="${url}" target="_blank" class="chat-link">${url}</a>`); }
 
     window.handleFileUpload = (input) => {
-        const file = input.files[0]; if(!file || imgbbKey.includes("YOUR")) return;
+        const file = input.files[0]; if(!file || !runtimeKeys.imgbbKey) return;
         const reader = new FileReader();
         reader.onload = async (e) => {
             const body = new FormData(); body.append('image', e.target.result.split(',')[1]);
-            const res = await fetch(`https://api.imgbb.com/1/upload?key=${imgbbKey}`, { method: "POST", body });
-            const data = await res.json();
-            if(data.success) sendMessage(data.data.url, true);
+            const res = await fetch(`https://api.imgbb.com/1/upload?key=${runtimeKeys.imgbbKey}`, { method: "POST", body });
+            const data = await res.json(); if(data.success) sendMessage(data.data.url, true);
         };
         reader.readAsDataURL(file);
     };
@@ -226,66 +213,204 @@
     function loadRooms() {
         db.ref('rooms').on('value', snap => {
             const l = document.getElementById('room-list');
-            l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs"># global</li>`;
-            snap.forEach(c => {
-                const r = c.val();
-                l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center transition"><span># ${r.name}</span> ${r.password ? `<span>🔒</span>` : ''}</li>`;
+            l.innerHTML = ``;
+            
+            db.ref('global_status/isLocked').once('value', gSnap => {
+                const globalLocked = gSnap.val() === true;
+                const globalLabel = globalLocked ? '🔒' : '';
+                l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs flex justify-between items-center">
+                    <span># global</span>
+                    <span class="text-indigo-400 font-bold tracking-normal normal-case">${globalLabel}</span>
+                </li>` + l.innerHTML;
             });
+
+            if(snap.exists()){
+                snap.forEach(c => {
+                    const r = c.val();
+                    if(r && r.name && c.key !== "undefined") {
+                        const labelText = (r.password || r.isLocked) ? '🔒' : '';
+                        l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center">
+                            <span># ${r.name}</span> 
+                            <span class="text-indigo-400 font-bold tracking-normal normal-case">${labelText}</span>
+                        </li>`;
+                    }
+                });
+            }
         });
-        joinRoom('global', 'global');
     }
 
-    function joinRoom(rid, rname) {
-        initialLoad = true;
-        messageCount = 0;
-        db.ref('rooms/' + rid).once('value', snap => {
-            const d = snap.val(); const isOwner = currentUser.displayName === OWNER_NAME;
-            if(rid !== 'global' && d && d.password) {
-                const p = prompt(isOwner ? `Room Password: ${d.password}` : "Locked. Password:");
-                if(p !== d.password) return alert("Denied");
-            }
-            currentRoomId = rid; document.getElementById('current-room-name').innerText = "# " + rname;
-            const canDel = isOwner || (d && d.owner === currentUser.uid);
-            document.getElementById('btn-delete-room').classList.toggle('hidden', !canDel);
-            db.ref('messages/' + rid).off();
-            db.ref('messages/' + rid).limitToLast(50).on('value', s => {
-                const box = document.getElementById('chat-messages'); box.innerHTML = '';
-                const msgs = s.val() || {};
-                const newCount = Object.keys(msgs).length;
-                
-                Object.keys(msgs).forEach(key => {
-                    const m = msgs[key], isMsgOwner = m.userName === OWNER_NAME;
-                    const content = m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : formatLinks(m.text);
-                    box.innerHTML += `<div class="group flex flex-col"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">${isMsgOwner ? '[OWNER] ' : ''}${m.userName}</span>${(isOwner || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${rid}/${key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase transition">Delete</button>` : ''}</div><div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%] shadow-sm">${content}</div></div>`;
-                });
-                
-                box.scrollTop = box.scrollHeight;
+    function updateTypingStatus() {
+        if (!currentUser || !currentRoomId) return;
+        const val = document.getElementById('msg-input').value.trim();
+        const ref = db.ref(`typing/${currentRoomId}/${currentUser.uid}`);
+        if (val.length > 0) {
+            if (!isTypingInDB) { ref.set(currentUser.displayName); ref.onDisconnect().remove(); isTypingInDB = true; }
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => { ref.remove(); isTypingInDB = false; }, 3000);
+        } else if (isTypingInDB) { ref.remove(); isTypingInDB = false; }
+    }
 
-                if (!initialLoad && newCount > messageCount) {
-                    const lastMsg = Object.values(msgs).pop();
-                    if (document.hidden && lastMsg && lastMsg.userId !== currentUser.uid) {
-                        notifSound.currentTime = 0;
-                        notifSound.play().catch(e => console.log('Audio blocked:', e));
-                    }
+    async function joinRoom(rid, rname, force = false) {
+        if (currentRoomId === rid && !force) return;
+
+        const isAdmin = (currentUser && currentUser.displayName === OWNER_NAME);
+
+        if (rid !== 'global') {
+            const snap = await db.ref('rooms/' + rid).once('value');
+            const d = snap.val() || {};
+            if (d.password) {
+                const promptMessage = isAdmin 
+                    ? `ADMIN ACCESS: Password is "${d.password}". Enter password to verify:` 
+                    : "Room is protected. Enter password:";
+                    
+                const pass = prompt(promptMessage);
+                if (!pass || pass.trim() !== d.password.toString().trim()) {
+                    alert("Access denied. Incorrect password.");
+                    return;
                 }
+            }
+        }
+
+        if(currentRoomId && currentUser) {
+            db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove();
+            db.ref(`typing/${currentRoomId}`).off();
+            db.ref('messages/' + currentRoomId).off();
+            if(currentRoomId !== 'global') db.ref('rooms/' + currentRoomId).off();
+            else db.ref('global_status').off();
+        }
+        
+        currentRoomId = rid;
+        isTypingInDB = false;
+        initialLoad = true; 
+        messageCount = 0;
+
+        const chatForm = document.getElementById('chat-form');
+        const lockNotice = document.getElementById('lock-notice');
+        const lockBtn = document.getElementById('btn-lock-room');
+        const delBtn = document.getElementById('btn-delete-room');
+
+        if (rid === 'global') {
+            document.getElementById('current-room-name').innerText = "# global";
+            delBtn.innerText = "Clear Chat";
+            
+            lockBtn.classList.toggle('hidden', !isAdmin);
+            delBtn.classList.toggle('hidden', !isAdmin);
+
+            db.ref('global_status').on('value', gSnap => {
+                const status = gSnap.val() || {};
+                const globalLocked = status.isLocked === true;
                 
-                messageCount = newCount;
-                initialLoad = false;
+                if (globalLocked) {
+                    chatForm.classList.add('hidden');
+                    lockNotice.classList.remove('hidden');
+                } else {
+                    chatForm.classList.remove('hidden');
+                    lockNotice.classList.add('hidden');
+                }
+                lockBtn.innerText = globalLocked ? "Unlock" : "Lock";
             });
+
+            lockBtn.onclick = () => {
+                if (!isAdmin) return;
+                db.ref('global_status/isLocked').once('value', s => {
+                    db.ref('global_status').update({ isLocked: !s.val() });
+                });
+            };
+
+            delBtn.onclick = () => {
+                if (!isAdmin) return;
+                if(confirm("Clear all global messages?")) {
+                    db.ref('messages/global').remove();
+                }
+            };
+
+        } else {
+            db.ref('rooms/' + rid).on('value', subSnap => {
+                const roomData = subSnap.val() || {};
+                if(!roomData.name) return;
+                document.getElementById('current-room-name').innerText = "# " + roomData.name;
+                
+                const isRoomOwner = roomData.owner === currentUser.uid;
+                const controlsAllowed = isAdmin || isRoomOwner;
+
+                if (roomData.isLocked) {
+                    chatForm.classList.add('hidden');
+                    lockNotice.classList.remove('hidden');
+                } else {
+                    chatForm.classList.remove('hidden');
+                    lockNotice.classList.add('hidden');
+                }
+
+                lockBtn.classList.toggle('hidden', !controlsAllowed);
+                delBtn.classList.toggle('hidden', !controlsAllowed);
+
+                lockBtn.innerText = roomData.isLocked ? "Unlock" : "Lock";
+                delBtn.innerText = "Delete";
+
+                lockBtn.onclick = () => {
+                    db.ref('rooms/' + rid).once('value', freshSnap => {
+                        const freshData = freshSnap.val() || {};
+                        if (freshData.exists() && (isAdmin || freshData.owner === currentUser.uid)) {
+                            db.ref('rooms/' + rid).update({ isLocked: !freshData.isLocked });
+                        }
+                    });
+                };
+                
+                delBtn.onclick = () => { 
+                    db.ref('rooms/' + rid).once('value', freshSnap => {
+                        const freshData = freshSnap.val() || {};
+                        if (freshData.exists() && (isAdmin || freshData.owner === currentUser.uid)) {
+                            if(confirm("Delete room?")) { 
+                                db.ref('rooms/' + rid).remove(); 
+                                db.ref('messages/' + rid).remove(); 
+                                db.ref('typing/' + rid).remove(); 
+                                joinRoom('global', 'global', true); 
+                            } 
+                        }
+                    });
+                };
+            });
+        }
+
+        db.ref(`typing/${currentRoomId}`).on('value', s => {
+            const data = s.val() || {};
+            const entries = Object.entries(data);
+            const el = document.getElementById('typing-indicator');
+            if (entries.length > 0) {
+                el.classList.remove('hidden');
+                const names = entries.map(([uid, name]) => uid === currentUser.uid ? "You" : name);
+                el.innerText = names.length === 1 ? `${names[0]} ${names[0] === 'You' ? 'are' : 'is'} typing...` : `${names[0]} and others are typing...`;
+            } else { el.classList.add('hidden'); }
+        });
+
+        db.ref('messages/' + currentRoomId).limitToLast(50).on('value', s => {
+            const box = document.getElementById('chat-messages'); box.innerHTML = '';
+            const msgs = s.val() || {}; const newCount = Object.keys(msgs).length;
+            Object.keys(msgs).forEach(key => {
+                const m = msgs[key], isMsgOwner = m.userName === OWNER_NAME;
+                const content = m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : formatLinks(m.text);
+                box.innerHTML += `<div class="group flex flex-col"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">${isMsgOwner ? '[OWNER] ' : ''}${m.userName}</span>${(isAdmin || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${currentRoomId}/${key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}</div><div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%]">${content}</div></div>`;
+            });
+            box.scrollTop = box.scrollHeight;
+            if (!initialLoad && newCount > messageCount) {
+                const last = Object.values(msgs).pop();
+                if (document.hidden && last.userId !== currentUser.uid) { notifSound.currentTime = 0; notifSound.play().catch(()=>{}); }
+            }
+            messageCount = newCount; initialLoad = false;
         });
     }
 
     function sendMessage(text, isImg = false) {
-        if(!text.trim()) return;
+        if(!text.trim() || !currentRoomId) return;
         db.ref('messages/' + currentRoomId).push({ text, userName: currentUser.displayName, userId: currentUser.uid, isImage: isImg });
+        db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove();
+        isTypingInDB = false;
     }
 
     document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const i = document.getElementById('msg-input'); sendMessage(i.value); i.value = ''; };
-
     document.getElementById('btn-create-room').onclick = () => {
-        const n = prompt("Room Name:"); if(!n) return;
-        const p = prompt("Password (blank for public):");
-        db.ref('rooms').push({ name: n, owner: currentUser.uid, password: p || null });
+        const n = prompt("Name:"); if(!n || n.trim() === "") return;
+        const p = prompt("Password:"); db.ref('rooms').push({ name: n.trim(), owner: currentUser.uid, password: p || null, isLocked: false });
     };
 </script>
 </body>
