@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML Chat</title>
+    <script src="https://js.puter.com/v2/"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -31,6 +33,10 @@
 </head>
 <body class="bg-slate-950 text-slate-200">
 
+<div class="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white text-center py-2 px-4 text-xs font-black uppercase tracking-wider shadow-xl flex items-center justify-center gap-2">
+    ⚠️ Important Notice: HTML Chat will be permanently shutting down on 8/6/26. Thank you for everything! ❤️
+</div>
+
 <div id="update-notif" class="hidden bg-indigo-600 text-white text-center py-2 text-xs font-bold uppercase tracking-widest shadow-lg">
     A new update is available! <a id="update-link" href="#" target="_blank" class="underline ml-2">Download Version <span id="new-version-text"></span></a>
 </div>
@@ -50,7 +56,10 @@
 
         <div class="md:col-span-3 bg-slate-900 rounded-3xl border border-slate-800 flex flex-col overflow-hidden relative shadow-xl">
             <div class="p-4 bg-slate-800/40 border-b border-slate-700 flex justify-between items-center">
-                <h2 id="current-room-name" class="font-black text-indigo-400 uppercase text-sm tracking-tight"># global</h2>
+                <div class="flex items-center gap-2">
+                    <h2 id="current-room-name" class="font-black text-indigo-400 uppercase text-sm tracking-tight"># global</h2>
+                    <span id="room-nsfw-tag" class="hidden bg-red-500/20 text-red-500 border border-red-500/40 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide">NSFW</span>
+                </div>
                 <div class="flex gap-2">
                     <button id="btn-lock-room" class="hidden text-orange-500 text-[10px] font-black border border-orange-500/30 px-3 py-1.5 rounded hover:bg-orange-500/10 uppercase transition">Lock</button>
                     <button id="btn-delete-room" class="hidden text-red-500 text-[10px] font-black border border-red-500/30 px-3 py-1.5 rounded hover:bg-red-500/10 uppercase transition">Delete</button>
@@ -63,6 +72,15 @@
             
             <div id="lock-notice" class="hidden p-4 bg-slate-950/80 text-center text-xs font-black text-orange-500 uppercase tracking-widest border-t border-slate-800">
                 🔒 This room is locked.
+            </div>
+
+            <div id="reply-context-bar" class="hidden px-4 py-2 bg-slate-950 border-t border-slate-800 flex justify-between items-center text-xs">
+                <div class="flex items-center gap-1 text-slate-400">
+                    <span class="text-indigo-400 font-bold">Replying to:</span>
+                    <span id="reply-target-user" class="font-black uppercase text-[10px]"></span>
+                    <span id="reply-target-text" class="truncate max-w-[240px] italic text-slate-500 ml-1"></span>
+                </div>
+                <button onclick="cancelReply()" class="text-slate-500 hover:text-red-400 font-black text-[10px] uppercase">Cancel</button>
             </div>
 
             <div id="emoji-container" class="picker-panel">
@@ -88,10 +106,20 @@
                 </button>
                 <button type="button" onclick="togglePicker('giphy-container')" class="text-indigo-400 font-black text-[10px] border border-indigo-400/30 px-2 py-1.5 rounded hover:bg-indigo-400/10 transition uppercase">GIF</button>
                 <button type="button" onclick="togglePicker('emoji-container')" class="text-xl p-1 hover:scale-110 transition-transform">☺</button>
-                <input id="msg-input" type="text" placeholder="Type a message..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold placeholder:text-slate-600 focus:border-indigo-500/50" oninput="updateTypingStatus()">
+                <input id="msg-input" type="text" placeholder="Type a message (or type '@ai [prompt]' for Free AI Chat)..." class="flex-1 bg-slate-800 border-slate-700 border p-3 rounded-xl outline-none text-white text-sm font-bold placeholder:text-slate-600 focus:border-indigo-500/50" oninput="updateTypingStatus()">
                 <button type="submit" class="bg-indigo-600 px-6 py-3 rounded-xl font-black text-white text-xs uppercase hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">Send</button>
             </form>
         </div>
+    </div>
+</div>
+
+<div id="shutdown-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[2000] p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 max-w-md w-full p-8 rounded-[2rem] text-center shadow-2xl">
+        <h2 class="font-black text-2xl text-red-500 tracking-tighter uppercase mb-4">📢 Shutdown Notice</h2>
+        <p class="text-sm text-slate-300 leading-relaxed mb-6">
+            HTML Chat is scheduled to fully close down on <strong>August 6, 2026</strong>. Over the next month, you can browse, use the new features, download your source backups, or play with the free AI model before all information is securely wiped. Thank you for an amazing journey!
+        </p>
+        <button onclick="document.getElementById('shutdown-modal').remove()" class="w-full bg-indigo-600 py-3 rounded-xl font-black text-xs text-white uppercase tracking-wider shadow-lg hover:bg-indigo-500 transition">Acknowledge</button>
     </div>
 </div>
 
@@ -116,17 +144,24 @@
     const db = firebase.database(), auth = firebase.auth();
     let currentUser = null, currentRoomId = 'global', initialLoad = true, messageCount = 0;
     let typingTimeout, isTypingInDB = false;
-    let runtimeKeys = { giphyKey: "", imgbbKey: "" };
+    let runtimeKeys = { giphyKey: "", imgbbKey: "", geminiKey: "" };
+    let activeReplyTo = null;
     
-    const CURRENT_VERSION = "2.1.2", OWNER_NAME = "LifeguardYT";
+    const CURRENT_VERSION = "2.2.0", OWNER_NAME = "LifeguardYT";
     const notifSound = new Audio('notif.wav');
     notifSound.volume = 1.0;
+
+    if (!sessionStorage.getItem('shutdown_warned')) {
+        document.getElementById('shutdown-modal').classList.remove('hidden');
+        sessionStorage.setItem('shutdown_warned', 'true');
+    }
 
     db.ref('api_keys').on('value', snap => {
         const data = snap.val();
         if (data) {
             runtimeKeys.giphyKey = data.giphyKey || "";
             runtimeKeys.imgbbKey = data.imgbbKey || "";
+            runtimeKeys.geminiKey = data.geminiKey || "";
             searchGiphy('');
         }
     });
@@ -228,10 +263,10 @@
                 snap.forEach(c => {
                     const r = c.val();
                     if(r && r.name && c.key !== "undefined") {
-                        const labelText = (r.password || r.isLocked) ? '🔒' : '';
+                        const statusTags = (r.password || r.isLocked ? '🔒 ' : '') + (r.nsfw ? '🔞' : '');
                         l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center">
-                            <span># ${r.name}</span> 
-                            <span class="text-indigo-400 font-bold tracking-normal normal-case">${labelText}</span>
+                            <span class="${r.nsfw ? 'text-red-400' : ''}"># ${r.name}</span> 
+                            <span class="text-indigo-400 font-bold tracking-normal normal-case flex items-center gap-1">${statusTags}</span>
                         </li>`;
                     }
                 });
@@ -250,14 +285,58 @@
         } else if (isTypingInDB) { ref.remove(); isTypingInDB = false; }
     }
 
+    window.initiateReply = (user, text) => {
+        activeReplyTo = { user, text };
+        document.getElementById('reply-target-user').innerText = user;
+        document.getElementById('reply-target-text').innerText = text;
+        document.getElementById('reply-context-bar').classList.remove('hidden');
+        document.getElementById('msg-input').focus();
+    };
+
+    window.cancelReply = () => {
+        activeReplyTo = null;
+        document.getElementById('reply-context-bar').classList.add('hidden');
+    };
+
+    async function processAiResponse(promptText) {
+        try {
+            // Using Puter's keyless browser AI service to avoid quota/API key validation checks completely
+            const response = await puter.ai.chat(promptText);
+            
+            db.ref('messages/' + currentRoomId).push({
+                text: response.toString().trim(),
+                userName: "🤖 HTML_AI",
+                userId: "system_ai_bot",
+                isImage: false,
+                replyContext: { user: currentUser.displayName, text: promptText }
+            });
+        } catch (error) {
+            db.ref('messages/' + currentRoomId).push({
+                text: `🤖 AI Connection Error: ${error.message}`,
+                userName: "🤖 HTML_AI",
+                userId: "system_ai_bot",
+                isImage: false,
+                replyContext: { user: currentUser.displayName, text: promptText }
+            });
+        }
+    }
+
     async function joinRoom(rid, rname, force = false) {
         if (currentRoomId === rid && !force) return;
+        cancelReply();
 
         const isAdmin = (currentUser && currentUser.displayName === OWNER_NAME);
 
         if (rid !== 'global') {
             const snap = await db.ref('rooms/' + rid).once('value');
             const d = snap.val() || {};
+            
+            if (d.nsfw) {
+                if (!confirm("🔞 WARNING: This room is marked as NSFW (Not Safe For Work). Do you wish to proceed?")) {
+                    return;
+                }
+            }
+
             if (d.password) {
                 const promptMessage = isAdmin 
                     ? `ADMIN ACCESS: Password is "${d.password}". Enter password to verify:` 
@@ -288,9 +367,11 @@
         const lockNotice = document.getElementById('lock-notice');
         const lockBtn = document.getElementById('btn-lock-room');
         const delBtn = document.getElementById('btn-delete-room');
+        const nsfwLabel = document.getElementById('room-nsfw-tag');
 
         if (rid === 'global') {
             document.getElementById('current-room-name').innerText = "# global";
+            nsfwLabel.classList.add('hidden');
             delBtn.innerText = "Clear Chat";
             
             lockBtn.classList.toggle('hidden', !isAdmin);
@@ -330,6 +411,8 @@
                 if(!roomData.name) return;
                 document.getElementById('current-room-name').innerText = "# " + roomData.name;
                 
+                nsfwLabel.classList.toggle('hidden', !roomData.nsfw);
+
                 const isRoomOwner = roomData.owner === currentUser.uid;
                 const controlsAllowed = isAdmin || isRoomOwner;
 
@@ -390,11 +473,37 @@
         db.ref('messages/' + currentRoomId).limitToLast(50).on('value', s => {
             const box = document.getElementById('chat-messages'); box.innerHTML = '';
             const msgs = s.val() || {}; const newCount = Object.keys(msgs).length;
+            
             Object.keys(msgs).forEach(key => {
                 const m = msgs[key], isMsgOwner = m.userName === OWNER_NAME;
                 const content = m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : formatLinks(m.text);
-                box.innerHTML += `<div class="group flex flex-col"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">${isMsgOwner ? '[OWNER] ' : ''}${m.userName}</span>${(isAdmin || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${currentRoomId}/${key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase">Delete</button>` : ''}</div><div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%]">${content}</div></div>`;
+                
+                let replyMarkup = "";
+                if (m.replyContext) {
+                    replyMarkup = `
+                        <div class="bg-slate-950/40 border-l-2 border-indigo-500/50 px-2 py-1 mb-1.5 rounded text-xs text-slate-400 select-none max-w-sm truncate">
+                            <span class="font-black text-[9px] uppercase text-indigo-400">${m.replyContext.user}:</span>
+                            <span class="italic text-[11px]">${m.replyContext.text}</span>
+                        </div>
+                    `;
+                }
+
+                box.innerHTML += `
+                    <div class="group flex flex-col">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">
+                                ${isMsgOwner ? '[OWNER] ' : ''}${m.userName}
+                            </span>
+                            <button onclick="initiateReply('${m.userName}', '${m.isImage ? '[Image/GIF]' : m.text.replace(/'/g, "\\'")}')" class="hidden group-hover:block text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase transition">Reply</button>
+                            ${(isAdmin || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${currentRoomId}/${key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase ml-1">Delete</button>` : ''}
+                        </div>
+                        <div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%]">
+                            ${replyMarkup}
+                            <div>${content}</div>
+                        </div>
+                    </div>`;
             });
+            
             box.scrollTop = box.scrollHeight;
             if (!initialLoad && newCount > messageCount) {
                 const last = Object.values(msgs).pop();
@@ -406,15 +515,42 @@
 
     function sendMessage(text, isImg = false) {
         if(!text.trim() || !currentRoomId) return;
-        db.ref('messages/' + currentRoomId).push({ text, userName: currentUser.displayName, userId: currentUser.uid, isImage: isImg });
+        
+        const payload = { 
+            text, 
+            userName: currentUser.displayName, 
+            userId: currentUser.uid, 
+            isImage: isImg 
+        };
+
+        if (activeReplyTo) {
+            payload.replyContext = { user: activeReplyTo.user, text: activeReplyTo.text };
+        }
+
+        db.ref('messages/' + currentRoomId).push(payload);
         db.ref(`typing/${currentRoomId}/${currentUser.uid}`).remove();
         isTypingInDB = false;
+        cancelReply();
+
+        if (!isImg && text.trim().toLowerCase().startsWith('@ai ')) {
+            processAiResponse(text.trim().substring(4));
+        }
     }
 
     document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const i = document.getElementById('msg-input'); sendMessage(i.value); i.value = ''; };
+    
     document.getElementById('btn-create-room').onclick = () => {
         const n = prompt("Name:"); if(!n || n.trim() === "") return;
-        const p = prompt("Password:"); db.ref('rooms').push({ name: n.trim(), owner: currentUser.uid, password: p || null, isLocked: false });
+        const p = prompt("Password (Optional - Leave blank if none):");
+        const nsfwChoice = confirm("Do you want to mark this room as NSFW? 🔞");
+        
+        db.ref('rooms').push({ 
+            name: n.trim(), 
+            owner: currentUser.uid, 
+            password: p || null, 
+            isLocked: false,
+            nsfw: nsfwChoice
+        });
     };
 </script>
 </body>
