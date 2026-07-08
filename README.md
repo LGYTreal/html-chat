@@ -55,74 +55,13 @@ But first some info. there is two types of HTML Chat clients, Modified Clients, 
 
 ## Modified Client
 
-Clone the GitHub repo:
-
-```git clone https://github.com/LGYTreal/html-chat.git```
-
-And open index.html
-
-Now, find ```<style>```, and edit it.
-
-That's all for Modified Client, just make sure to credit me! And you can change more, just not the database.
+I won't even put instructions. Modified clients will not be possible to create after HTML Chat shuts down on August 27, 2026.
 
 ---
 
 ## Client
 
-This one is WAY more complicated!
-
-Clone the GitHub repo:
-
-```git clone https://github.com/LGYTreal/html-chat.git```
-
-And open index.html
-
-Find the following:
-```
-const firebaseConfig = {
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: "",
-        databaseURL: ""
-    };
-```
-    Now go to https://firebase.google.com. Sign in, create a new Firebase project, add and configure your app. Then, copy your config in SDK setup, and replace the current config in index.html with yours. Now, in Firebase, add Authentication, and select anonymous, and add it. Next up, set up realtime database. Just press get started, and configure it, and your done! You can also change the client's styling.
-
-    Oh and one more thing, go into your realtime database, find rules, and paste this:
-    ```
-    {
-  "rules": {
-    ".read": "auth != null",
-    "rooms": {
-      "$room_id": {
-        ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid || root.child('admins').child(auth.uid).exists())"
-      }
-    },
-    "messages": {
-      "$room_id": {
-        "$msg_id": {
-          ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).exists())"
-        }
-      }
-    },
-    "admins": {
-      ".read": "auth != null",
-      ".write": false
-    },
-    "admin_config": {
-      ".read": "auth != null",
-      ".write": false
-    }
-  }
-}
-```
-
-
-
-## That is all for creating a client!
+Will be shown in a video after the site shuts down.
 
 # Thanks for using HTML Chat!
 
