@@ -17,8 +17,7 @@ There is chat, and private chat rooms (password or passwordless).
 
 # How do I use it?
 
-Download the HTML file using the link in the repo, this link can also be shared.
-Open the HTML file, set a username, and your done!
+Click on the link in the repo description!
 
 ---
 
