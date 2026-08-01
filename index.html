@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HTML Chat</title>
     <script src="https://js.puter.com/v2/"></script>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -33,8 +32,8 @@
 </head>
 <body class="bg-slate-950 text-slate-200">
 
-<div class="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white text-center py-2 px-4 text-xs font-black uppercase tracking-wider shadow-xl flex items-center justify-center gap-2">
-    ⚠️ Important Notice: HTML Chat will be permanently shutting down on 8/6/26. Thank you for everything! ❤️
+<div id="live-banner" class="bg-gradient-to-r from-red-600 via-amber-600 to-red-600 text-white text-center py-2 px-4 text-xs font-black uppercase tracking-wider shadow-xl flex items-center justify-center gap-2">
+    ⚠️ Important Notice: HTML Chat will be permanently shutting down on 8/27/26. Thank you for everything! ❤️
 </div>
 
 <div id="update-notif" class="hidden bg-indigo-600 text-white text-center py-2 text-xs font-bold uppercase tracking-widest shadow-lg">
@@ -102,7 +101,7 @@
             <form id="chat-form" class="p-4 flex gap-2 bg-slate-900 items-center border-t border-slate-800">
                 <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFileUpload(this)">
                 <button type="button" onclick="document.getElementById('file-input').click()" class="text-slate-500 hover:text-indigo-400 p-1 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </button>
                 <button type="button" onclick="togglePicker('giphy-container')" class="text-indigo-400 font-black text-[10px] border border-indigo-400/30 px-2 py-1.5 rounded hover:bg-indigo-400/10 transition uppercase">GIF</button>
                 <button type="button" onclick="togglePicker('emoji-container')" class="text-xl p-1 hover:scale-110 transition-transform">☺</button>
@@ -117,7 +116,7 @@
     <div class="bg-slate-900 border border-slate-800 max-w-md w-full p-8 rounded-[2rem] text-center shadow-2xl">
         <h2 class="font-black text-2xl text-red-500 tracking-tighter uppercase mb-4">📢 Shutdown Notice</h2>
         <p class="text-sm text-slate-300 leading-relaxed mb-6">
-            HTML Chat is scheduled to fully close down on <strong>August 6, 2026</strong>. Over the next month, you can browse, use the new features, download your source backups, or play with the free AI model before all information is securely wiped. Thank you for an amazing journey!
+            HTML Chat is scheduled to fully close down on <strong>August 27, 2026</strong>. Over the next month, you can browse, use the new features, download your source backups, or play with the free AI model before all information is securely wiped. Thank you for an amazing journey!
         </p>
         <button onclick="document.getElementById('shutdown-modal').remove()" class="w-full bg-indigo-600 py-3 rounded-xl font-black text-xs text-white uppercase tracking-wider shadow-lg hover:bg-indigo-500 transition">Acknowledge</button>
     </div>
@@ -128,7 +127,7 @@
         <h2 class="font-black text-4xl mb-10 text-indigo-500 tracking-tighter uppercase">HTML CHAT</h2>
         <input id="username-input" type="text" placeholder="Username" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-4 font-bold focus:border-indigo-500">
         <input id="password-input" type="password" placeholder="Password" class="w-full bg-slate-800 p-5 rounded-2xl outline-none text-white text-center border border-slate-700 text-base mb-8 font-bold focus:border-indigo-500">
-        <button id="btn-login" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-base text-white uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition">Login</button>
+        <button id="btn-login" class="w-full bg-indigo-600 py-5 rounded-2xl font-black text-base text-white uppercase tracking-widest shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 transition">Login / Register</button>
     </div>
 </div>
 
@@ -146,10 +145,44 @@
     let typingTimeout, isTypingInDB = false;
     let runtimeKeys = { giphyKey: "", imgbbKey: "", geminiKey: "" };
     let activeReplyTo = null;
+    let lastMessageTime = 0;
+    let initialMessagesLoaded = false;
     
     const CURRENT_VERSION = "2.2.0", OWNER_NAME = "LifeguardYT";
     const notifSound = new Audio('notif.wav');
     notifSound.volume = 1.0;
+
+    const BAD_WORD_PATTERNS = [
+        /f+u+c+k+/i, /s+h+i+t+/i, /b+i+t+c+h+/i, /a+s+s+h+o+l+e+/i, /c+u+n+t+/i, 
+        /d+i+c+k+/i, /p+u+s+s+y+/i, /s+l+u+t+/i, /w+h+o+r+e+/i, /b+a+s+t+a+r+d+/i,
+        /f+a+g+g+o+t+/i, /n+i+g+g+e+r+/i, /n+i+g+g+a+/i, /c+o+c+k+/i, /p+e+n+i+s+/i,
+        /v+a+g+i+n+a+/i, /m+o+t+h+e+r+f+u+c+k+e+r+/i, /a+r+s+e+/i, /b+o+o+b+/i, /t+i+t+/i
+    ];
+
+    function normalizeText(str) {
+        return str
+            .replace(/@/g, 'a')
+            .replace(/[$5]/g, 's')
+            .replace(/3/g, 'e')
+            .replace(/0/g, 'o')
+            .replace(/[1!|]/g, 'i')
+            .replace(/7/g, 't')
+            .replace(/4/g, 'a')
+            .replace(/\(/g, 'c');
+    }
+
+    function applyChatFilter(text) {
+        if (!text) return text;
+        const words = text.split(/\s+/);
+
+        const filteredWords = words.map(word => {
+            const normalized = normalizeText(word);
+            const isBad = BAD_WORD_PATTERNS.some(pattern => pattern.test(normalized));
+            return isBad ? "****" : word;
+        });
+
+        return filteredWords.join(" ");
+    }
 
     if (!sessionStorage.getItem('shutdown_warned')) {
         document.getElementById('shutdown-modal').classList.remove('hidden');
@@ -211,10 +244,70 @@
         }, 400);
     };
 
+    function convertToSafeEmail(username) {
+        let hex = '';
+        for (let i = 0; i < username.length; i++) {
+            hex += username.charCodeAt(i).toString(16).padStart(4, '0');
+        }
+        return `usr_${hex}@chat.com`;
+    }
+
+    function highlightRoomTab(roomId) {
+        const el = document.getElementById(`room-tab-${roomId}`);
+        if (el) {
+            el.classList.add('bg-indigo-600/40', 'border', 'border-indigo-500');
+            setTimeout(() => {
+                el.classList.remove('bg-indigo-600/40', 'border', 'border-indigo-500');
+            }, 3000);
+        }
+    }
+
+    db.ref('messages').once('value', () => {
+        initialMessagesLoaded = true;
+        db.ref('messages').on('child_changed', snap => {
+            if (initialMessagesLoaded) {
+                highlightRoomTab(snap.key);
+            }
+        });
+    });
+
     document.getElementById('btn-login').onclick = () => {
-        const u = document.getElementById('username-input').value.trim(), p = document.getElementById('password-input').value;
-        if(!u || p.length < 6) return alert("Error");
-        auth.signInWithEmailAndPassword(u + "@chat.com", p).catch(() => auth.createUserWithEmailAndPassword(u + "@chat.com", p).then(c => c.user.updateProfile({ displayName: u }))).then(() => window.location.reload());
+        const rawUser = document.getElementById('username-input').value.trim();
+        const u = applyChatFilter(rawUser);
+        const p = document.getElementById('password-input').value;
+        if(!u || p.length < 6) return alert("Username is required and password must be at least 6 characters.");
+        
+        const email = convertToSafeEmail(u);
+
+        auth.signInWithEmailAndPassword(email, p)
+            .then(() => {
+                document.getElementById('login-screen').style.display = 'none';
+            })
+            .catch(err => {
+                if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+                    auth.createUserWithEmailAndPassword(email, p)
+                        .then(c => c.user.updateProfile({ displayName: u }))
+                        .then(() => auth.currentUser.reload())
+                        .then(() => {
+                            currentUser = auth.currentUser;
+                            renderHeader();
+                            document.getElementById('login-screen').style.display = 'none';
+                        })
+                        .catch(regErr => {
+                            if (regErr.code === 'auth/email-already-in-use') {
+                                alert("This username is already taken. Please enter the correct password for this account.");
+                            } else {
+                                alert("Registration Error: " + regErr.message);
+                            }
+                        });
+                } 
+                else if (err.code === 'auth/wrong-password') {
+                    alert("Incorrect password for this username. Please try again.");
+                } 
+                else {
+                    alert("Authentication Failure: " + err.message);
+                }
+            });
     };
 
     auth.onAuthStateChanged(u => { 
@@ -223,13 +316,17 @@
             document.getElementById('login-screen').style.display = 'none'; 
             renderHeader(); 
             loadRooms(); 
-            joinRoom('global', 'global', true);
-        } 
+            joinRoom('global', 'global');
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+        }
     });
 
     function renderHeader() {
-        const isOwner = currentUser.displayName === OWNER_NAME;
-        document.getElementById('user-info').innerHTML = (isOwner ? '<span class="owner-tag">OWNER</span>' : '') + `<span>${currentUser.displayName}</span><button onclick="auth.signOut().then(()=>location.reload())" class="ml-4 text-slate-500 font-black hover:text-red-400 uppercase text-[10px]">Logout</button>`;
+        if (!currentUser) return;
+        const name = currentUser.displayName || "User";
+        const isOwner = name === OWNER_NAME;
+        document.getElementById('user-info').innerHTML = (isOwner ? '<span class="owner-tag">OWNER</span>' : '') + `<span>${name}</span><button onclick="auth.signOut()" class="ml-4 text-slate-500 font-black hover:text-red-400 uppercase text-[10px]">Logout</button>`;
     }
 
     function formatLinks(text) { return text.replace(/(https?:\/\/[^\s]+)/g, (url) => `<a href="${url}" target="_blank" class="chat-link">${url}</a>`); }
@@ -253,7 +350,7 @@
             db.ref('global_status/isLocked').once('value', gSnap => {
                 const globalLocked = gSnap.val() === true;
                 const globalLabel = globalLocked ? '🔒' : '';
-                l.innerHTML = `<li onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs flex justify-between items-center">
+                l.innerHTML = `<li id="room-tab-global" onclick="joinRoom('global', 'global')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-400 font-black uppercase text-xs flex justify-between items-center transition-all duration-300">
                     <span># global</span>
                     <span class="text-indigo-400 font-bold tracking-normal normal-case">${globalLabel}</span>
                 </li>` + l.innerHTML;
@@ -264,7 +361,7 @@
                     const r = c.val();
                     if(r && r.name && c.key !== "undefined") {
                         const statusTags = (r.password || r.isLocked ? '🔒 ' : '') + (r.nsfw ? '🔞' : '');
-                        l.innerHTML += `<li onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center">
+                        l.innerHTML += `<li id="room-tab-${c.key}" onclick="joinRoom('${c.key}', '${r.name}')" class="p-3 hover:bg-slate-800 rounded-xl cursor-pointer text-slate-200 font-black text-xs uppercase flex justify-between items-center transition-all duration-300">
                             <span class="${r.nsfw ? 'text-red-400' : ''}"># ${r.name}</span> 
                             <span class="text-indigo-400 font-bold tracking-normal normal-case flex items-center gap-1">${statusTags}</span>
                         </li>`;
@@ -278,8 +375,9 @@
         if (!currentUser || !currentRoomId) return;
         const val = document.getElementById('msg-input').value.trim();
         const ref = db.ref(`typing/${currentRoomId}/${currentUser.uid}`);
+        const name = currentUser.displayName || "User";
         if (val.length > 0) {
-            if (!isTypingInDB) { ref.set(currentUser.displayName); ref.onDisconnect().remove(); isTypingInDB = true; }
+            if (!isTypingInDB) { ref.set(name); ref.onDisconnect().remove(); isTypingInDB = true; }
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => { ref.remove(); isTypingInDB = false; }, 3000);
         } else if (isTypingInDB) { ref.remove(); isTypingInDB = false; }
@@ -300,32 +398,34 @@
 
     async function processAiResponse(promptText) {
         try {
-            // Using Puter's keyless browser AI service to avoid quota/API key validation checks completely
             const response = await puter.ai.chat(promptText);
+            const filteredResponse = applyChatFilter(response.toString().trim());
             
             db.ref('messages/' + currentRoomId).push({
-                text: response.toString().trim(),
+                text: filteredResponse,
                 userName: "🤖 HTML_AI",
                 userId: "system_ai_bot",
+                timestamp: Date.now(),
                 isImage: false,
-                replyContext: { user: currentUser.displayName, text: promptText }
+                replyContext: { user: currentUser.displayName || "User", text: promptText }
             });
         } catch (error) {
             db.ref('messages/' + currentRoomId).push({
                 text: `🤖 AI Connection Error: ${error.message}`,
                 userName: "🤖 HTML_AI",
                 userId: "system_ai_bot",
+                timestamp: Date.now(),
                 isImage: false,
-                replyContext: { user: currentUser.displayName, text: promptText }
+                replyContext: { user: currentUser.displayName || "User", text: promptText }
             });
         }
     }
 
-    async function joinRoom(rid, rname, force = false) {
-        if (currentRoomId === rid && !force) return;
+    async function joinRoom(rid, rname) {
         cancelReply();
 
-        const isAdmin = (currentUser && currentUser.displayName === OWNER_NAME);
+        const currentName = currentUser ? (currentUser.displayName || "User") : "";
+        const isAdmin = (currentName === OWNER_NAME);
 
         if (rid !== 'global') {
             const snap = await db.ref('rooms/' + rid).once('value');
@@ -362,6 +462,16 @@
         isTypingInDB = false;
         initialLoad = true; 
         messageCount = 0;
+
+        const isAnnouncements = (rid && rid.toLowerCase() === 'announcements') || (rname && rname.toLowerCase() === 'announcements');
+
+        if (currentUser && !isAnnouncements) {
+            db.ref('messages/' + currentRoomId).push({
+                text: `👋 ${currentUser.displayName || "A user"} joined the room.`,
+                isSystem: true,
+                timestamp: Date.now()
+            });
+        }
 
         const chatForm = document.getElementById('chat-form');
         const lockNotice = document.getElementById('lock-notice');
@@ -450,7 +560,7 @@
                                     db.ref('rooms/' + rid).remove(); 
                                     db.ref('messages/' + rid).remove(); 
                                     db.ref('typing/' + rid).remove(); 
-                                    joinRoom('global', 'global', true); 
+                                    joinRoom('global', 'global'); 
                                 } 
                             }
                         }
@@ -473,11 +583,29 @@
         db.ref('messages/' + currentRoomId).limitToLast(50).on('value', s => {
             const box = document.getElementById('chat-messages'); box.innerHTML = '';
             const msgs = s.val() || {}; const newCount = Object.keys(msgs).length;
-            
+            const currentMyName = currentUser ? (currentUser.displayName || "User").toLowerCase() : "";
+
             Object.keys(msgs).forEach(key => {
-                const m = msgs[key], isMsgOwner = m.userName === OWNER_NAME;
+                const m = msgs[key];
+                
+                if (m.isSystem) {
+                    box.innerHTML += `
+                        <div class="flex justify-center my-2">
+                            <span class="bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-bold px-3 py-1 rounded-full shadow-sm">
+                                ${m.text}
+                            </span>
+                        </div>`;
+                    return;
+                }
+
+                const isMsgOwner = m.userName === OWNER_NAME;
                 const content = m.isImage ? `<img src="${m.text}" class="chat-img" onclick="window.open(this.src)">` : formatLinks(m.text);
                 
+                const dateObj = m.timestamp ? new Date(m.timestamp) : new Date();
+                const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                const isMentioned = m.text && currentMyName && m.text.toLowerCase().includes(`@${currentMyName}`);
+
                 let replyMarkup = "";
                 if (m.replyContext) {
                     replyMarkup = `
@@ -494,10 +622,11 @@
                             <span class="text-[10px] font-black uppercase ${isMsgOwner ? 'text-red-500' : 'text-indigo-400'}">
                                 ${isMsgOwner ? '[OWNER] ' : ''}${m.userName}
                             </span>
+                            <span class="text-[9px] font-bold text-slate-600">${timeString}</span>
                             <button onclick="initiateReply('${m.userName}', '${m.isImage ? '[Image/GIF]' : m.text.replace(/'/g, "\\'")}')" class="hidden group-hover:block text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase transition">Reply</button>
                             ${(isAdmin || m.userId === currentUser.uid) ? `<button onclick="db.ref('messages/${currentRoomId}/${key}').remove()" class="hidden group-hover:block text-[9px] text-slate-600 hover:text-red-500 font-bold uppercase ml-1">Delete</button>` : ''}
                         </div>
-                        <div class="bg-slate-900 p-3 rounded-2xl rounded-tl-none border border-slate-800 text-sm text-slate-200 max-w-[85%]">
+                        <div class="${isMentioned ? 'bg-indigo-950/80 border-indigo-500/80' : 'bg-slate-900 border-slate-800'} p-3 rounded-2xl rounded-tl-none border text-sm text-slate-200 max-w-[85%] transition-all">
                             ${replyMarkup}
                             <div>${content}</div>
                         </div>
@@ -507,7 +636,13 @@
             box.scrollTop = box.scrollHeight;
             if (!initialLoad && newCount > messageCount) {
                 const last = Object.values(msgs).pop();
-                if (document.hidden && last.userId !== currentUser.uid) { notifSound.currentTime = 0; notifSound.play().catch(()=>{}); }
+                if (last && !last.isSystem && last.userId !== currentUser.uid) {
+                    const isMentioned = last.text && currentMyName && last.text.toLowerCase().includes(`@${currentMyName}`);
+                    if (document.hidden || isMentioned) { 
+                        notifSound.currentTime = 0; 
+                        notifSound.play().catch(()=>{}); 
+                    }
+                }
             }
             messageCount = newCount; initialLoad = false;
         });
@@ -515,16 +650,29 @@
 
     function sendMessage(text, isImg = false) {
         if(!text.trim() || !currentRoomId) return;
+
+        const now = Date.now();
+        if (now - lastMessageTime < 1500) {
+            alert("⏱️ Please wait a moment before sending another message.");
+            return;
+        }
+        lastMessageTime = now;
         
+        const cleanText = isImg ? text : applyChatFilter(text);
+
         const payload = { 
-            text, 
-            userName: currentUser.displayName, 
+            text: cleanText, 
+            userName: currentUser.displayName || "User", 
             userId: currentUser.uid, 
+            timestamp: Date.now(),
             isImage: isImg 
         };
 
         if (activeReplyTo) {
-            payload.replyContext = { user: activeReplyTo.user, text: activeReplyTo.text };
+            payload.replyContext = { 
+                user: activeReplyTo.user, 
+                text: applyChatFilter(activeReplyTo.text) 
+            };
         }
 
         db.ref('messages/' + currentRoomId).push(payload);
@@ -540,12 +688,13 @@
     document.getElementById('chat-form').onsubmit = (e) => { e.preventDefault(); const i = document.getElementById('msg-input'); sendMessage(i.value); i.value = ''; };
     
     document.getElementById('btn-create-room').onclick = () => {
-        const n = prompt("Name:"); if(!n || n.trim() === "") return;
+        const rawN = prompt("Name:"); if(!rawN || rawN.trim() === "") return;
+        const n = applyChatFilter(rawN.trim());
         const p = prompt("Password (Optional - Leave blank if none):");
         const nsfwChoice = confirm("Do you want to mark this room as NSFW? 🔞");
         
         db.ref('rooms').push({ 
-            name: n.trim(), 
+            name: n, 
             owner: currentUser.uid, 
             password: p || null, 
             isLocked: false,
